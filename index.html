@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<meta name="description" content="Central Operacional — orquestração de serviços internos para farmácias.">
+<meta name="theme-color" content="#1f543e">
+<title>Central Operacional</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="assets/styles.css" as="style">
+<link rel="modulepreload" href="src/app.js">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<!-- ================= ENTRADA (login / criar conta por farmácia) ================= -->
+<div class="login-gate" id="loginGate">
+  <div class="login-card">
+    <h2>Central Operacional</h2>
+    <p class="login-sub" id="loginSub">Inicie sessão com a conta da sua farmácia.</p>
+    <div class="login-tabs" id="loginTabs">
+      <button type="button" class="login-tab active" data-tab="login">Entrar</button>
+      <button type="button" class="login-tab" data-tab="signup">Criar conta</button>
+    </div>
+    <form id="loginForm" class="login-form" autocomplete="on">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" name="username" required autocomplete="username">
+      <label for="loginPassword">Palavra-passe</label>
+      <input type="password" id="loginPassword" name="password" required autocomplete="current-password">
+      <button type="submit" class="btn-primary" id="loginSubmit">Entrar</button>
+    </form>
+    <form id="signupForm" class="login-form" autocomplete="on" hidden>
+      <label for="signupNomeFarmacia">Nome da farmácia</label>
+      <input type="text" id="signupNomeFarmacia" required>
+      <label for="signupEmail">Email</label>
+      <input type="email" id="signupEmail" name="username" required autocomplete="username">
+      <label for="signupPassword">Palavra-passe (mín. 8 caracteres)</label>
+      <input type="password" id="signupPassword" name="new-password" required autocomplete="new-password" minlength="8">
+      <button type="submit" class="btn-primary" id="signupSubmit">Criar conta</button>
+    </form>
+    <p class="login-status" id="loginStatusText"></p>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
+  <button class="sidebar-toggle" id="sidebarToggle" title="Mostrar/ocultar barra lateral"><span class="icon" id="sidebarToggleIcon"></span></button>
+
+  <aside class="sidebar" id="sidebarContainer"><!-- preenchido por src/ui/sidebar.js --></aside>
+
+  <main class="main-wrap">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="crumb" id="crumbContainer"></div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-shell">
+          <span class="icon" id="topbarSearchIcon"></span>
+          <input type="text" id="searchInput" placeholder="Pesquisar serviços...">
+        </div>
+        <select id="selectSort" class="select-sort">
+          <option value="ordem">Ordem manual</option>
+          <option value="nome">Nome A–Z</option>
+          <option value="uso">Mais usados</option>
+          <option value="recente">Acedidos recentemente</option>
+          <option value="criado">Mais recentes</option>
+        </select>
+        <div class="view-toggle" id="viewToggle">
+          <button data-view="grid" class="active" title="Vista em grelha"><span class="icon" id="viewGridIcon"></span></button>
+          <button data-view="list" title="Vista em lista"><span class="icon" id="viewListIcon"></span></button>
+        </div>
+        <button id="btnRefresh" class="btn-icon-round" title="Atualizar"><span class="icon" id="refreshIcon"></span></button>
+        <button id="btnNovoServico" class="btn-config primary"><span class="icon" id="plusIcon"></span> Novo serviço</button>
+        <button id="btnAbrirConfig" class="btn-config"><span class="icon" id="slidersIcon"></span> Configurações</button>
+        <span class="farmacia-label" id="farmaciaLabel" title="Farmácia com sessão iniciada"></span>
+        <button id="btnLogout" class="btn-icon-round" title="Terminar sessão"><span class="icon" id="logoutIcon"></span></button>
+      </div>
+    </div>
+
+    <div id="contentRoot"><div class="grid-categorias"><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div></div>
+
+    <footer>
+      Clique num serviço para abrir numa nova aba • Arraste para reordenar (ordem manual) • <span class="kbd-hint">Ctrl K</span> paleta de comandos
+    </footer>
+  </main>
+</div>
+
+<!-- ================= MODAL: CONFIGURAÇÕES ================= -->
+<div id="modalConfig" class="modal-overlay">
+  <div class="modal-container">
+    <div class="modal-head">
+      <button class="modal-close-x" id="btnFecharConfigX"><span class="icon" id="closeIcon1"></span></button>
+      <h2><span class="icon" id="slidersIcon2"></span> Configurações da Central</h2>
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="geral">Geral</button>
+        <button class="modal-tab" data-tab="servicos">Serviços</button>
+        <button class="modal-tab" data-tab="categorias">Categorias</button>
+        <button class="modal-tab" data-tab="dados">Dados &amp; Estatísticas</button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <!-- TAB: GERAL -->
+      <div class="tab-panel active" id="tab-geral">
+        <div class="config-section">
+          <h3><span class="icon" id="imgIcon1"></span> Logótipo da Farmácia</h3>
+          <div class="logo-preview">
+            <div id="modalLogoPreview">
+              <div id="modalLogoPlaceholder" style="width:64px;height:64px;background:var(--surface-chip);display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--primary);"><span class="icon" id="capsuleIcon" style="font-size:1.4rem;"></span></div>
+              <img id="modalLogoImg" style="width:64px;height:64px;border-radius:50%;display:none;object-fit:cover;border:2px solid var(--border-strong);">
+            </div>
+            <label class="btn-upload" for="modalLogoUpload"><span class="icon" id="uploadIcon1"></span> Alterar logótipo</label>
+            <input type="file" id="modalLogoUpload" accept="image/*" style="display:none;">
+          </div>
+        </div>
+        <div class="config-section">
+          <h3><span class="icon" id="tagIcon1"></span> Identificação</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Nome da farmácia</label><input type="text" id="nomeFarmaciaInput" placeholder="Ex: Farmácia Central"></div>
+          </div>
+          <p style="font-size:.72rem;color:var(--text-soft);margin:-4px 0 12px;">
+            O nome e o logótipo definidos aqui são a fonte única de verdade: aparecem em toda a Central — incluindo todos os módulos e ferramentas.
+          </p>
+          <div class="form-row">
+            <div class="form-group"><label>Morada</label><input type="text" id="moradaInput" placeholder="Ex: Rua Principal, 123, 1000-001 Lisboa"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Email de contacto</label><input type="text" id="emailContactoInput" placeholder="Ex: geral@farmacia.pt"></div>
+            <div class="form-group"><label>Telefone de contacto</label><input type="text" id="telefoneContactoInput" placeholder="Ex: 21 000 00 00"></div>
+          </div>
+          <p style="font-size:.72rem;color:var(--text-soft);margin:-4px 0 0;">
+            Usados para pré-preencher documentos e etiquetas gerados pelas ferramentas (contratos, declarações, rótulos...) — continuam editáveis em cada documento individual, se precisar de os ajustar num caso concreto.
+          </p>
+        </div>
+      </div>
+
+      <!-- TAB: SERVIÇOS -->
+      <div class="tab-panel" id="tab-servicos">
+        <div class="toolbar-row">
+          <div class="mini-search"><span class="icon" id="searchIcon2"></span><input type="text" id="gestaoSearchInput" placeholder="Filtrar serviços..."></div>
+          <button id="btnMostrarFormAdd" class="btn-secondary"><span class="icon" id="plusIcon2"></span> Adicionar serviço</button>
+        </div>
+        <div id="servicosListaGestao" class="servicos-lista"></div>
+
+        <div id="formAddServico" style="display:none;" class="form-add">
+          <h4 id="formTitulo" style="margin-bottom:14px;color:var(--primary-dark);">Adicionar serviço</h4>
+          <div class="form-row">
+            <div class="form-group"><label>Nome *</label><input type="text" id="servicoNome" placeholder="Ex: Rastreio Tensão Arterial"></div>
+            <div class="form-group"><label>Categoria</label><select id="servicoCategoria"></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:2;"><label>Descrição breve</label><input type="text" id="servicoDescricao" placeholder="Ex: Medição e registo de tensão arterial"></div>
+            <div class="form-group"><label>Estado</label>
+              <select id="servicoStatus"><option value="ativo">Ativo</option><option value="manutencao">Em manutenção</option><option value="arquivado">Arquivado</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>URL online</label><input type="text" id="servicoUrl" placeholder="https://..."></div>
+            <div class="form-group">
+              <label>OU carregar HTML</label>
+              <label class="file-label" for="htmlFileInput"><span class="icon" id="htmlIcon"></span> Escolher .html</label>
+              <input type="file" id="htmlFileInput" accept=".html,.htm" style="display:none;">
+              <div id="htmlFileName" style="font-size:.68rem;color:var(--text-soft);margin-top:4px;"></div>
+            </div>
+            <div class="form-group">
+              <label>OU carregar ficheiro (PDF, Word, Excel...)</label>
+              <label class="file-label" for="arquivoFileInput"><span class="icon" id="arquivoIcon"></span> Escolher ficheiro</label>
+              <input type="file" id="arquivoFileInput" style="display:none;">
+              <div id="arquivoFileName" style="font-size:.68rem;color:var(--text-soft);margin-top:4px;"></div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Imagem do botão</label>
+              <label class="file-label" for="imgFileInput"><span class="icon" id="imgIcon2"></span> Enviar imagem</label>
+              <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
+              <div id="imgFileName" style="font-size:.68rem;color:var(--text-soft);margin-top:4px;"></div>
+            </div>
+            <div class="form-group"><label>Ou URL da imagem</label><input type="text" id="imgUrlInput" placeholder="https://...imagem.png"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label>Etiquetas (tags)</label>
+              <div class="tags-input-shell" id="tagsShell"><input type="text" id="tagsInput" placeholder="Escrever e Enter..."></div>
+            </div>
+            <div class="form-group" style="display:flex;align-items:flex-end;">
+              <label class="checkbox-row"><input type="checkbox" id="servicoFavorito"> Marcar como favorito</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;">
+            <button id="btnCancelarForm" class="btn-secondary">Cancelar</button>
+            <button id="btnSalvarServico" class="btn-primary">Guardar</button>
+          </div>
+          <div id="formFeedback" class="feedback"></div>
+        </div>
+      </div>
+
+      <!-- TAB: CATEGORIAS -->
+      <div class="tab-panel" id="tab-categorias">
+        <div class="config-section">
+          <h3><span class="icon" id="tagIcon2"></span> Categorias e subcategorias</h3>
+          <p class="field-hint" style="margin-bottom:14px;">As categorias funcionam como pastas: pode criar subcategorias e definir uma cor ou imagem para cada uma.</p>
+          <div id="categoriasLista"></div>
+          <div class="form-row" style="margin-top:14px;align-items:flex-end;">
+            <div class="form-group"><label>Nova categoria</label><input type="text" id="novaCategoriaNome" placeholder="Ex: Vacinação"></div>
+            <div class="form-group"><label>Categoria-mãe</label><select id="novaCategoriaParent"></select></div>
+            <div class="form-group" style="flex:0 0 56px;"><label>Cor</label><input type="color" id="novaCategoriaCor" value="#2b7a4b" style="width:100%;height:38px;border-radius:14px;border:1px solid var(--border-strong);padding:2px;"></div>
+            <div class="form-group" style="flex:0 0 auto;">
+              <label class="file-label" for="novaCategoriaImg" style="white-space:nowrap;"><span class="icon" id="imgIcon3"></span> Imagem</label>
+              <input type="file" id="novaCategoriaImg" accept="image/*" style="display:none;">
+            </div>
+            <div class="form-group" style="flex:0 0 auto;"><button id="btnAddCategoria" class="btn-primary">Adicionar</button></div>
+          </div>
+          <div id="novaCategoriaImgNome" style="font-size:.68rem;color:var(--text-soft);margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <!-- TAB: DADOS -->
+      <div class="tab-panel" id="tab-dados">
+        <div class="config-section">
+          <h3><span class="icon" id="chartIcon"></span> Serviços mais utilizados</h3>
+          <div id="usageStatsList"></div>
+        </div>
+        <div class="config-section">
+          <h3><span class="icon" id="boxesIcon"></span> Gestão de dados</h3>
+          <div class="data-actions-grid">
+            <div class="data-action-card">
+              <span class="icon" id="downloadIcon"></span>
+              <h4>Exportar cópia de segurança</h4>
+              <p>Descarrega um ficheiro .json com todos os serviços, categorias e configurações.</p>
+              <button id="btnExportar" class="btn-secondary"><span class="icon" id="downloadIcon2"></span> Exportar</button>
+            </div>
+            <div class="data-action-card">
+              <span class="icon" id="uploadIcon3"></span>
+              <h4>Importar cópia de segurança</h4>
+              <p>Restaura dados a partir de um ficheiro .json exportado anteriormente.</p>
+              <label class="btn-secondary" for="inputImportar" style="display:inline-flex;align-items:center;gap:8px;"><span class="icon" id="uploadIcon4"></span> Importar</label>
+              <input type="file" id="inputImportar" accept="application/json" style="display:none;">
+            </div>
+            <div class="data-action-card">
+              <span class="icon" id="alertIcon"></span>
+              <h4>Repor tudo</h4>
+              <p>Remove todos os serviços, categorias e o logótipo desta central. Ação irreversível.</p>
+              <button id="btnResetTudo" class="btn-danger-outline"><span class="icon" id="trashIcon2"></span> Repor</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:0 32px 26px;">
+      <button id="btnFecharConfig" class="btn-secondary">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= PALETA DE COMANDOS ================= -->
+<div class="palette-overlay" id="paletteOverlay">
+  <div class="palette-box">
+    <div class="palette-input-row"><span class="icon" id="boltIcon"></span><input type="text" id="paletteInput" placeholder="Pesquisar serviços ou executar uma ação..."></div>
+    <div class="palette-results" id="paletteResults"></div>
+    <div class="palette-footer"><span><kbd>↑↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> fechar</span></div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
