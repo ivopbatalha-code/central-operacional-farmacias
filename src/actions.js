@@ -19,6 +19,7 @@ import { bus } from "./events.js";
 import { nowTs, uid } from "./utils.js";
 import { CATEGORIA_INDEFINIDA_ID, CATEGORIAS_PADRAO } from "./domain.js";
 import { getPerfil } from "./authClient.js";
+import { cacheBrandingLocal } from "./db.js";
 
 function stripTransient(s) {
   // `htmlContent`/`arquivoBase64` NUNCA vão no payload do estado geral: vivem
@@ -70,15 +71,22 @@ export function createActions(store, dataStore) {
 
   const actions = {
     async iniciar() {
-      const [servicos, categorias, logoBase64, nomeFarmaciaConfig, morada, emailContacto, telefoneContacto] = await Promise.all([
+      const [servicos, categorias, logoAsset, logoConfigAntigo, nomeFarmaciaConfig, morada, emailContacto, telefoneContacto] = await Promise.all([
         dataStore.getAll("servicos"),
         dataStore.getAll("categorias"),
+        // O logótipo vive no seu próprio blob (getAsset), separado do resto
+        // do estado — ver nota em setLogo(). `getConfig("logo")` só serve de
+        // recurso para farmácias com um logótipo gravado antes desta
+        // mudança, que ainda não voltaram a carregar um novo.
+        dataStore.getAsset("branding-logo"),
         dataStore.getConfig("logo"),
         dataStore.getConfig("nomeFarmacia"),
         dataStore.getConfig("morada"),
         dataStore.getConfig("emailContacto"),
         dataStore.getConfig("telefoneContacto")
       ]);
+      const logoBase64 = logoAsset || logoConfigAntigo || null;
+      cacheBrandingLocal(nomeFarmaciaConfig || getPerfil()?.nomeFarmacia, logoBase64);
       // Fonte única de verdade do nome da farmácia: `config.nomeFarmacia`
       // (editável em Configurações, é o que TODOS os módulos/ferramentas
       // devem mostrar). Antes desse campo alguma vez ser gravado (ex.: uma
@@ -130,7 +138,13 @@ export function createActions(store, dataStore) {
 
     async setLogo(base64) {
       store.dispatch({ type: "SET_LOGO", logoBase64: base64 });
-      await dataStore.setConfig("logo", base64);
+      // Guardado no seu próprio blob (não em config.logo): o logótipo pode
+      // pesar centenas de KB, e config é lido/reenviado por inteiro em TODOS
+      // os módulos a cada carregamento e a cada gravação — mantê-lo à parte
+      // é o que torna essas operações rápidas independentemente do tamanho
+      // da imagem escolhida.
+      await dataStore.setAsset("branding-logo", base64);
+      cacheBrandingLocal(store.getState().nomeFarmacia, base64);
       bus.emit("toast:show", { type: "ok", msg: "Logótipo atualizado." });
     },
     async setNomeFarmacia(nome) {

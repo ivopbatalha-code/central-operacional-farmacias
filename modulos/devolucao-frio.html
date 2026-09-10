@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Declaração · Produtos de Frio · Central Operacional</title>
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root { --fs: 13px; }
@@ -17,6 +18,11 @@ body { font-family: Arial, sans-serif; font-size: var(--fs); background: #b8b8b8
   padding: 7px 16px; margin: -20px -20px 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,.4); flex-wrap: wrap;
 }
+/* A barra .mc-standalone-bar (Voltar à Central Operacional, só em modo
+   standalone) passou a preceder esta toolbar no HTML — sem este ajuste,
+   as margens negativas de ambas colapsavam e ficavam sobrepostas. */
+.mc-standalone-bar{ margin:-20px -20px 0; }
+.toolbar{ margin-top:0; }
 .tlabel { font-size: 11px; opacity: .8; white-space: nowrap; }
 .tsep { width:1px; height:22px; background:rgba(255,255,255,.3); margin:0 4px; flex-shrink:0; }
 .tbtn {
@@ -243,9 +249,11 @@ body { font-family: Arial, sans-serif; font-size: var(--fs); background: #b8b8b8
 </head>
 <body>
 
+<div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
+
 <!-- TOOLBAR -->
 <div class="toolbar">
-  <button class="tbtn" onclick="voltarACentral()">← Voltar à Central</button>
+  <button class="tbtn module-back" onclick="voltarACentral()">← Voltar à Central</button>
   <div class="tsep"></div>
   <span class="tlabel">Letra:</span>
   <div class="fs-ctrl">
@@ -374,6 +382,7 @@ body { font-family: Arial, sans-serif; font-size: var(--fs); background: #b8b8b8
 
 </div>
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { aoExpirarSessao } from "../src/db.js";
 import { getToken, limparSessao, getPerfil } from "../src/authClient.js";

@@ -45,7 +45,7 @@
     # própria app nunca carrega nada de fora (só 'self'), por isso esta
     # abertura só afeta os documentos carregados pela farmácia, que são
     # conteúdo interno e confiado, não conteúdo de terceiros arbitrário.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
 
 # HTML — nunca em cache agressiva (garante que a próxima visita vê a versão mais recente)
 [[headers]]
@@ -92,7 +92,11 @@
   for = "/modulos/*"
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; upgrade-insecure-requests"
+    # frame-src 'self' data: blob: — os módulos (ex.: Documentos) pré-visualizam
+    # PDFs e imagens carregados pela farmácia dentro de um <iframe src="data:...">
+    # ou "blob:...". Sem isto, o próprio CSP bloqueia essa pré-visualização
+    # ("conteúdo bloqueado"), mesmo sendo conteúdo interno e confiado.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'self' data: blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; upgrade-insecure-requests"
 
 # ---------------------------------------------------------------------------
 # Compressão: o Netlify aplica Brotli/Gzip automaticamente a todos os assets

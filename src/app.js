@@ -15,7 +15,7 @@ import { aoExpirarSessao } from "./db.js";
 
 /* ---------- preencher os placeholders de ícone estáticos do index.html ---------- */
 const ICON_ELEMENT_MAP = {
-  sidebarToggleIcon: "chevronRight", topbarSearchIcon: "search", viewGridIcon: "grid", viewListIcon: "list",
+  sidebarToggleIcon: "grid", topbarSearchIcon: "search", viewGridIcon: "grid", viewListIcon: "list",
   refreshIcon: "refresh", plusIcon: "plus", slidersIcon: "sliders", closeIcon1: "close", slidersIcon2: "sliders",
   imgIcon1: "image", capsuleIcon: "capsule", uploadIcon1: "upload", tagIcon1: "tag",
   searchIcon2: "search", plusIcon2: "plus", htmlIcon: "upload", arquivoIcon: "upload",
@@ -40,6 +40,7 @@ const actions = createActions(store, dataStore);
 const appRoot = document.getElementById("appRoot");
 const sidebarContainer = document.getElementById("sidebarContainer");
 const sidebarToggle = document.getElementById("sidebarToggle");
+const navBackdrop = document.getElementById("navBackdrop");
 const crumbContainer = document.getElementById("crumbContainer");
 const searchInput = document.getElementById("searchInput");
 const selectSort = document.getElementById("selectSort");
@@ -115,22 +116,36 @@ const palette = initPalette(
   }
 );
 
+/* ---------- painel de navegação (Módulos & Categorias) — agora um overlay,
+   não uma coluna sempre visível; abre/fecha em vez de "encolher" ---------- */
+function toggleNav(force) {
+  const open = typeof force === "boolean" ? force : !appRoot.classList.contains("nav-open");
+  appRoot.classList.toggle("nav-open", open);
+}
+sidebarToggle.addEventListener("click", () => toggleNav());
+navBackdrop.addEventListener("click", () => toggleNav(false));
+// delegado (o conteúdo de sidebarContainer é substituído a cada render) —
+// qualquer elemento com data-close-sidebar fecha o painel.
+sidebarContainer.addEventListener("click", (e) => { if (e.target.closest("[data-close-sidebar]")) toggleNav(false); });
+
 /* ---------- handlers partilhados entre a sidebar, a barra de navegação (crumb) e a grelha principal ---------- */
 let dragSrcId = null;
 let catDragSrcId = null;
 const handlers = {
   onSearch: debounce((v) => actions.setSearch(v), 120),
-  onNav: (tipo) => actions.setScope({ tipo }),
+  onNav: (tipo) => { actions.setScope({ tipo }); toggleNav(false); },
   onAbrirModulo: (modulo) => {
     actions.setSearch("");
     searchInput.value = "";
     actions.setScope({ tipo: "modulo", modulo });
+    toggleNav(false);
   },
   onSelectCategory: (categoriaId) => {
     expandPathTo(store.getState().categorias, categoriaId);
     actions.setSearch("");
     searchInput.value = "";
     actions.setScope({ tipo: "categoria-direta", categoriaId });
+    toggleNav(false);
   },
   onAddCategory: () => modals.abrirConfig("categorias"),
   onAbrir: (id) => actions.abrirEmNovaAba(id),
@@ -166,12 +181,6 @@ btnRefresh.addEventListener("click", async () => {
 btnNovoServico.addEventListener("click", () => { modals.abrirConfig("servicos"); modals.mostrarFormAdd(); });
 btnAbrirConfig.addEventListener("click", () => modals.abrirConfig("geral"));
 
-sidebarToggle.addEventListener("click", () => appRoot.classList.toggle("collapsed"));
-const mobileMq = window.matchMedia("(max-width: 960px)");
-function aplicarEstadoResponsivo(e) { appRoot.classList.toggle("collapsed", e.matches); }
-if (mobileMq.matches) appRoot.classList.add("collapsed");
-mobileMq.addEventListener("change", aplicarEstadoResponsivo);
-
 /* ---------- atalhos de teclado ---------- */
 document.addEventListener("keydown", (e) => {
   const isTyping = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName);
@@ -180,6 +189,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     if (palette.isOpen()) palette.close();
     else if (modalEls.modalConfig.classList.contains("active")) modals.fecharConfig();
+    else if (appRoot.classList.contains("nav-open")) toggleNav(false);
   }
 });
 

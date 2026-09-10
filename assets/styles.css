@@ -48,28 +48,43 @@ mark{background:#cdeed4;color:var(--primary-darker);border-radius:4px;padding:0 
 .icon svg{width:100%;height:100%;}
 
 /* =====================================================================
-   ESTRUTURA GERAL — sidebar + conteúdo principal
-   ===================================================================== */
-.app{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr);min-height:100vh;transition:grid-template-columns .22s var(--ease);}
-.app.collapsed{grid-template-columns:0px minmax(0,1fr);}
-.app.collapsed .sidebar{opacity:0;pointer-events:none;transform:translateX(-16px);}
+   ESTRUTURA GERAL — barra superior fixa + painel de navegação em overlay
+   (antes era uma sidebar fixa a ocupar sempre 288px; agora o menu "Módulos
+   & Categorias" só ocupa espaço quando aberto, como um dropdown/painel —
+   liberta o ecrã todo para o conteúdo, e evita a segunda sidebar de cada
+   módulo somar-se a esta e espremer tudo.) */
+.app{min-height:100vh;}
+
+.nav-backdrop{
+  position:fixed;inset:0;background:rgba(10,20,16,.42);z-index:150;
+  opacity:0;pointer-events:none;transition:opacity .18s var(--ease);
+}
+.app.nav-open .nav-backdrop{opacity:1;pointer-events:auto;}
 
 .sidebar-toggle{
-  position:fixed;top:20px;left:calc(var(--sidebar-w) - 18px);z-index:60;width:34px;height:34px;border-radius:50%;
-  background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-md);color:var(--primary-dark);
-  display:flex;align-items:center;justify-content:center;transition:left .22s var(--ease),transform .2s var(--ease);
+  display:inline-flex;align-items:center;gap:8px;flex-shrink:0;
+  background:var(--surface-chip);border:none;padding:9px 16px 9px 13px;border-radius:var(--radius-pill);
+  font-size:.85rem;font-weight:700;color:var(--primary);transition:background .2s var(--ease);
 }
-.app.collapsed .sidebar-toggle{left:14px;}
-.sidebar-toggle:hover{transform:scale(1.08);}
-.sidebar-toggle .icon{transition:transform .22s var(--ease);transform:rotate(180deg);}
-.app.collapsed .sidebar-toggle .icon{transform:rotate(0deg);}
+.sidebar-toggle:hover{background:#d9eedf;}
+.sidebar-toggle .icon{transition:transform .2s var(--ease);}
+.app.nav-open .sidebar-toggle{background:var(--primary);color:#fff;}
+.app.nav-open .sidebar-toggle .icon{transform:rotate(90deg);}
 
 .sidebar{
   background:linear-gradient(175deg,var(--primary-dark) 0%,var(--primary-darker) 100%);
-  color:#e7f5ec;padding:22px 18px 16px;display:flex;flex-direction:column;gap:20px;
-  position:sticky;top:0;height:100vh;overflow-y:auto;transition:opacity .18s var(--ease),transform .22s var(--ease);
+  color:#e7f5ec;padding:18px 16px 14px;display:flex;flex-direction:column;gap:16px;
+  position:fixed;left:0;top:0;height:100vh;width:min(90vw,340px);overflow-y:auto;z-index:200;
+  box-shadow:var(--shadow-xl);transform:translateX(-100%);opacity:0;pointer-events:none;
+  transition:transform .22s var(--ease),opacity .18s var(--ease);
 }
+.app.nav-open .sidebar{transform:translateX(0);opacity:1;pointer-events:auto;}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);}
+.sidebar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.sidebar-head span{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#8fbaa0;}
+.sidebar-close{background:rgba(255,255,255,.1);border:none;width:30px;height:30px;border-radius:50%;color:#e7f5ec;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s var(--ease);}
+.sidebar-close:hover{background:rgba(255,255,255,.2);}
+.nav-item.no-match,.cat-node.no-match{display:none;}
 /* Nenhuma secção direta da sidebar pode encolher abaixo do seu tamanho
    natural — sem isto, quando o conteúdo total excede a altura do ecrã, o
    flexbox espreme secções inteiras (ex.: a lista de categorias) até 0px de
@@ -357,14 +372,6 @@ footer{text-align:center;margin-top:36px;font-size:.7rem;color:var(--text-faint)
 .skeleton-card{background:linear-gradient(100deg,var(--surface-alt) 30%,var(--surface-soft) 50%,var(--surface-alt) 70%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:28px;min-height:150px;}
 @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
 
-@media (max-width:960px){
-  .app{grid-template-columns:0px minmax(0,1fr);}
-  .app:not(.collapsed) .sidebar{position:fixed;left:0;top:0;width:min(84vw,320px);z-index:55;box-shadow:var(--shadow-xl);opacity:1;transform:none;}
-  .app:not(.collapsed)::before{content:"";position:fixed;inset:0;background:rgba(10,20,16,.4);z-index:50;}
-  .app.collapsed .sidebar{position:fixed;left:0;top:0;width:min(84vw,320px);}
-  .sidebar-toggle{left:14px;}
-  .app:not(.collapsed) .sidebar-toggle{left:calc(min(84vw,320px) - 18px);z-index:56;}
-}
 @media (max-width:650px){
   .main-wrap{padding:14px 12px 30px;}
   .grid-servicos{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;}

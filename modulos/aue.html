@@ -6,6 +6,7 @@
 <title>Pedidos AUE · Central Operacional</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
   :root{
     --green-deep:#1f543e;
@@ -37,88 +38,26 @@
     color:var(--ink);
     -webkit-font-smoothing:antialiased;
   }
-  .app{
-    display:grid;
-    grid-template-columns:minmax(210px,272px) minmax(0,1fr);
-    min-height:100vh;
-    transition:grid-template-columns .22s ease;
-  }
-  .app.collapsed{
-    grid-template-columns:0px minmax(0,1fr);
-  }
-  .app.collapsed .sidebar{padding-left:0;padding-right:0;opacity:0;pointer-events:none;}
-  .sidebar-toggle{
-    position:fixed;top:18px;left:258px;z-index:60;
-    width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
-    background:#fff;color:var(--green-deep);box-shadow:var(--shadow);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;
-    transition:left .22s ease;
-  }
-  .app.collapsed .sidebar-toggle{left:14px;}
+  .app{ min-height:100vh; }
 
-  /* ---------- SIDEBAR ---------- */
-  .sidebar{
+  /* ---------- MÓDULO HEAD (substitui a antiga sidebar lateral) ---------- */
+  .mc-module-head{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
     background:linear-gradient(180deg,var(--green-deep) 0%, #0f2a20 100%);
-    color:#EAF6EE;
-    padding:26px 20px 24px;
-    display:flex;
-    flex-direction:column;
-    gap:26px;
-    overflow:hidden;
-    transition:opacity .18s ease, padding .22s ease;
+    color:#EAF6EE;padding:12px 18px;margin-bottom:18px;
   }
-  .brand{
-    display:flex;
-    flex-direction:column;
-    gap:9px;
-  }
-  .brand-logo{
-    width:100%;
-    max-width:190px;
-    height:auto;
-    background:#fff;
-    border-radius:10px;
-    padding:10px 12px;
-    box-shadow:var(--shadow);
-  }
-  .brand-sub{font-size:11px;color:#B7D9F5;font-weight:600;letter-spacing:.3px;padding-left:2px;}
-  .brand-tag{font-size:10px;color:#8FB8E0;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding-left:2px;}
+  .mc-module-head .brand-sub{font-size:11px;color:#B7D9F5;font-weight:600;letter-spacing:.3px;}
+  .mc-module-head .brand-tag{font-size:10px;color:#8FB8E0;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+  .mc-module-head .stat-grid{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  .mc-module-head .stat{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.09);border-radius:10px;padding:6px 12px;min-width:74px;}
+  .mc-module-head .stat b{font-family:'Manrope',sans-serif;font-size:16px;font-weight:800;display:block;font-variant-numeric:tabular-nums;line-height:1.2;}
+  .mc-module-head .stat span{font-size:9px;color:#AFD3F0;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+  .mc-module-head .stat.warn b{color:#F3C77E;}
 
-  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .stat{
-    background:rgba(255,255,255,0.06);
-    border:1px solid rgba(255,255,255,0.09);
-    border-radius:12px;
-    padding:12px 12px 10px;
-  }
-  .stat b{font-family:'Manrope',sans-serif;font-size:22px;font-weight:800;display:block;font-variant-numeric:tabular-nums;}
-  .stat span{font-size:10.5px;color:#AFD3F0;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
-  .stat.warn b{color:#F3C77E;}
-
-  .nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#8FB8E0;font-weight:700;margin:4px 0 -10px;}
-  .filters{display:flex;flex-direction:column;gap:4px;}
-  .filter-btn{
-    display:flex;align-items:center;justify-content:space-between;
-    background:transparent;border:none;color:#DCEAF9;
-    padding:9px 10px;border-radius:9px;font-size:13.5px;font-weight:600;
-    cursor:pointer;text-align:left;font-family:'Inter',sans-serif;
-    transition:background .12s;
-  }
-  .filter-btn:hover{background:rgba(255,255,255,0.08);}
-  .filter-btn.active{background:var(--green-bright);color:#0A2740;}
-  .filter-btn .dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:8px;}
-  .filter-btn count{
-    font-size:11px;background:rgba(255,255,255,0.14);padding:1px 7px;border-radius:20px;font-variant-numeric:tabular-nums;
-  }
-  .filter-btn.active count{background:rgba(10,39,64,0.25);color:#0A2740;}
-
-  .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;}
-  .ghost-btn{
-    background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:#EAF6EE;
-    padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;
-    display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;
-  }
-  .ghost-btn:hover{background:rgba(255,255,255,0.13);}
+  /* A sidebar lateral antiga já não é usada — o módulo passou a ter a
+     barra superior compacta acima (.mc-module-head) e a barra inferior
+     de navegação/filtros (assets/module-chrome.js). */
+  .sidebar{display:none;}
 
   /* ---------- SYNC INDICATOR ---------- */
   .sync-indicator{
@@ -373,38 +312,25 @@
 </head>
 <body>
 
+<div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
 <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
 
 <div class="app" id="appRoot">
-  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Mostrar/ocultar barra lateral">‹</button>
-
-  <aside class="sidebar">
-    <div class="brand">
-      <img class="brand-logo" id="brandLogoImg" src="" alt="Logótipo da farmácia">
-      <span class="brand-sub">Gestão de Pedidos AUE</span>
-      <span class="brand-tag" id="brandTagFarmacia"></span>
+  <div class="mc-module-head">
+    <img class="mc-logo" id="brandLogoImg" src="" alt="Logótipo da farmácia">
+    <div>
+      <div class="brand-sub">Gestão de Pedidos AUE</div>
+      <div class="brand-tag" id="brandTagFarmacia"></div>
     </div>
-
     <div class="stat-grid" id="statGrid"></div>
-
-    <div class="nav-label">Estado</div>
-    <div class="filters" id="filterList"></div>
-
-    <div class="sidebar-foot">
-      <button class="sync-indicator" id="syncIndicator" onclick="forceSync()" title="Forçar sincronização agora">
-        <span class="sync-dot" id="syncDot"></span>
-        <span class="sync-text">
-          <span class="sync-title" id="syncTitle">A verificar sincronização…</span>
-          <span class="sync-sub" id="syncSub">Toque para sincronizar agora</span>
-        </span>
-      </button>
-      <button class="ghost-btn" onclick="document.getElementById('fileHidden').click()">⇪ Importar CSV</button>
-      <button class="ghost-btn" onclick="exportCSV()">⇩ Exportar para CSV</button>
-      <button class="ghost-btn" onclick="openEmailSettingsModal()">✉ Definições de email <span id="mailDot" style="width:6px;height:6px;border-radius:50%;background:#5B7A93;margin-left:auto;"></span></button>
-      <button class="ghost-btn" onclick="openSyncSettingsModal()">☁ Definições de sincronização</button>
-      <input type="file" id="fileHidden" accept=".csv" onchange="handleImport(event)">
-    </div>
-  </aside>
+    <button class="sync-indicator" id="syncIndicator" onclick="forceSync()" title="Forçar sincronização agora" style="width:auto;">
+      <span class="sync-dot" id="syncDot"></span>
+      <span class="sync-text">
+        <span class="sync-title" id="syncTitle">A verificar…</span>
+        <span class="sync-sub" id="syncSub" style="display:none;"></span>
+      </span>
+    </button>
+  </div>
 
   <main>
     <div class="topbar">
@@ -414,6 +340,11 @@
         <input id="searchInput" type="text" placeholder="Pesquisar por utente, NIF, medicamento, médico…" oninput="render()">
       </div>
       <button class="btn-secondary" onclick="cycleSort()">↕ Ordenar: <span id="sortLabel">Mais recentes</span></button>
+      <button class="btn-secondary" onclick="document.getElementById('fileHidden').click()">⇪ Importar</button>
+      <button class="btn-secondary" onclick="exportCSV()">⇩ Exportar</button>
+      <button class="btn-secondary" onclick="openEmailSettingsModal()">✉ Email <span id="mailDot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#5B7A93;margin-left:4px;"></span></button>
+      <button class="btn-secondary" onclick="openSyncSettingsModal()">☁ Sincronização</button>
+      <input type="file" id="fileHidden" accept=".csv" onchange="handleImport(event)" style="display:none;">
       <button class="btn-primary" onclick="openModal()">+ Novo pedido AUE</button>
     </div>
 
@@ -685,6 +616,7 @@
 </div>
 
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { aoExpirarSessao, makeDataStore } from "../src/db.js";
 import { getToken, limparSessao, getPerfil } from "../src/authClient.js";
@@ -714,13 +646,26 @@ let FARMACIA_LOGO_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000
    partilhado — nunca o nome captado no registo (que pode ficar desatualizado
    se a farmácia o mudar mais tarde). */
 let ESTADO_BRANDING_CACHE = null;
+/* Logótipo movido para o seu próprio blob (/api/asset/branding-logo) — ver
+   carregarLogoAsset() abaixo e a nota em gravarAue(). */
+let ASSET_LOGO_CACHE = null;
 
 function nomeFarmaciaAtual(){
   return ESTADO_BRANDING_CACHE?.config?.nomeFarmacia || getPerfil()?.nomeFarmacia || 'Farmácia';
 }
 
 function logoFarmaciaAtual(){
-  return ESTADO_BRANDING_CACHE?.config?.logo || null;
+  return ASSET_LOGO_CACHE || ESTADO_BRANDING_CACHE?.config?.logo || null;
+}
+
+async function carregarLogoAsset(){
+  const cached = window.ModuleChrome.getCachedBranding();
+  if(cached && cached.logo){ ASSET_LOGO_CACHE = cached.logo; aplicarBrandingFarmacia(); }
+  const token = getToken();
+  if(!token) return;
+  const logo = await window.ModuleChrome.fetchLogoAsset(token);
+  if(logo){ ASSET_LOGO_CACHE = logo; aplicarBrandingFarmacia(); }
+  window.ModuleChrome.cacheBranding(nomeFarmaciaAtual(), logoFarmaciaAtual());
 }
 
 function aplicarBrandingFarmacia(){
@@ -743,15 +688,19 @@ async function fetchEstado(){
 }
 
 aplicarBrandingFarmacia();
+carregarLogoAsset();
 
 async function gravarAue(key, value){
   const estadoAtual = await fetchEstado();
   const token = getToken();
   const novoAue = { ...(estadoAtual.aue || {}), [key]: value };
+  // Logótipo omitido de propósito (ver carregarLogoAsset acima).
+  const configSemLogo = { ...(estadoAtual.config || {}) };
+  delete configSemLogo.logo;
   const res = await fetch('/api/data', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...estadoAtual, aue: novoAue })
+    body: JSON.stringify({ ...estadoAtual, config: configSemLogo, aue: novoAue })
   });
   if(res.status === 401){ limparSessao(); voltarACentral(); throw new Error('sessão expirada'); }
   if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -1045,12 +994,13 @@ function renderSidebar(){
     {key:'todos', label:'Pedidos ativos', dot:'#8FB8E0'},
     ...Object.entries(STATUS).map(([k,v])=>({key:k,label:v.label,dot:dotColor(k)}))
   ];
-  document.getElementById('filterList').innerHTML = items.map(it=>`
-    <button class="filter-btn ${activeFilter===it.key?'active':''}" onclick="setFilter('${it.key}')">
-      <span><span class="dot" style="background:${it.dot}"></span>${it.label}</span>
-      <count>${counts[it.key]||0}</count>
-    </button>
-  `).join('');
+  const bbItems = items.map(it => ({
+    id: it.key,
+    icon: `<span style="width:8px;height:8px;border-radius:50%;background:${it.dot};display:inline-block;"></span>`,
+    label: `${it.label}${counts[it.key] ? ' (' + counts[it.key] + ')' : ''}`,
+    onSelect: () => setFilter(it.key)
+  }));
+  window.ModuleChrome.mountBottomBar(bbItems, { activeId: activeFilter });
 }
 function dotColor(k){
   return {pendente_docs:'#C97F1E',pronto_envio:'#8034A8',aguarda_aprovacao:'#0E7C86',aprovado:'#2F9E63',entregue:'#9AA69E',indeferido:'#C0433B'}[k];
@@ -1844,23 +1794,11 @@ document.addEventListener('visibilitychange', ()=>{
 });
 setInterval(()=>attemptSync('sincronização periódica'), 90000);
 
-/* ---------------- SIDEBAR RETRÁTIL ---------------- */
-function initSidebar(){
-  const collapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
-  applySidebar(collapsed);
-}
-function toggleSidebar(){
-  const isCollapsed = document.getElementById('appRoot').classList.contains('collapsed');
-  applySidebar(!isCollapsed);
-}
-function applySidebar(collapsed){
-  const app = document.getElementById('appRoot');
-  const btn = document.getElementById('sidebarToggle');
-  app.classList.toggle('collapsed', collapsed);
-  btn.textContent = collapsed ? '›' : '‹';
-  localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
-}
-initSidebar();
+/* ---------------- SIDEBAR / NAV =====================
+   A antiga sidebar lateral colapsável foi substituída pela barra inferior
+   (assets/module-chrome.js) — mantidas só por compatibilidade, sem fazerem nada. */
+function initSidebar(){}
+function toggleSidebar(){}
 
 /* Exposição global — necessária p/ handlers inline (onclick="...") em módulos ES,
    já que declarações de topo de um módulo não ficam automaticamente em window. */

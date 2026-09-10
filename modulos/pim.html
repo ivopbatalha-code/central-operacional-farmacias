@@ -6,6 +6,7 @@
 <title>Gestão de PIM · Central Operacional</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
   :root{
     --brand-deep:#1f543e;
@@ -40,67 +41,27 @@
     color:var(--ink);
     -webkit-font-smoothing:antialiased;
   }
-  .app{
-    display:grid;
-    grid-template-columns:minmax(210px,278px) minmax(0,1fr);
-    min-height:100vh;
-    transition:grid-template-columns .22s ease;
-  }
-  .app.collapsed{ grid-template-columns:0px minmax(0,1fr); }
-  .app.collapsed .sidebar{padding-left:0;padding-right:0;opacity:0;pointer-events:none;}
-  .sidebar-toggle{
-    position:fixed;top:18px;left:264px;z-index:60;
-    width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
-    background:#fff;color:var(--brand-deep);box-shadow:var(--shadow);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;
-    transition:left .22s ease;
-  }
-  .app.collapsed .sidebar-toggle{left:14px;}
+  .app{ min-height:100vh; }
 
-  /* ---------- SIDEBAR ---------- */
-  .sidebar{
+  /* ---------- MÓDULO HEAD (substitui a antiga sidebar lateral) ---------- */
+  .mc-module-head{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
     background:linear-gradient(180deg,var(--brand-deep) 0%, var(--brand-deep2) 100%);
-    color:#EAF6EE;
-    padding:26px 20px 24px;
-    display:flex;
-    flex-direction:column;
-    gap:20px;
-    overflow:hidden;
-    transition:opacity .18s ease, padding .22s ease;
+    color:#EAF6EE;padding:12px 18px;margin-bottom:18px;
   }
-  .brand{display:flex;flex-direction:column;gap:9px;}
-  .brand-logo{width:100%;max-width:190px;height:auto;background:#fff;border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);}
-  .brand-sub{font-size:11px;color:#F5E7AE;font-weight:600;letter-spacing:.3px;padding-left:2px;}
-  .brand-tag{font-size:10px;color:#E0C468;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding-left:2px;}
+  .mc-module-head .brand-sub{font-size:11px;color:#F5E7AE;font-weight:600;letter-spacing:.3px;}
+  .mc-module-head .brand-tag{font-size:10px;color:#E0C468;font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+  .mc-module-head .stat-grid{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+  .mc-module-head .stat{background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);border-radius:10px;padding:6px 12px;min-width:74px;}
+  .mc-module-head .stat b{font-family:'Manrope',sans-serif;font-size:15px;font-weight:800;display:block;font-variant-numeric:tabular-nums;line-height:1.2;}
+  .mc-module-head .stat span{font-size:9px;color:#F0DC8E;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+  .mc-module-head .stat.warn b{color:#FFDE8A;}
+  .mc-module-head .stat.danger b{color:#FFB199;}
 
-  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .stat{background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);border-radius:12px;padding:12px 12px 10px;}
-  .stat b{font-family:'Manrope',sans-serif;font-size:19px;font-weight:800;display:block;font-variant-numeric:tabular-nums;}
-  .stat span{font-size:10px;color:#F0DC8E;font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
-  .stat.warn b{color:#FFDE8A;}
-  .stat.danger b{color:#FFB199;}
-
-  .nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:#E0C468;font-weight:700;margin:4px 0 -6px;}
-  .filters{display:flex;flex-direction:column;gap:3px;}
-  .filter-btn{
-    display:flex;align-items:center;gap:9px;
-    background:transparent;border:none;color:#FFF3CE;
-    padding:9px 11px;border-radius:9px;font-size:13px;font-weight:600;
-    cursor:pointer;text-align:left;font-family:'Inter',sans-serif;
-    transition:background .12s;position:relative;
-  }
-  .filter-btn:hover{background:rgba(255,255,255,0.10);}
-  .filter-btn.active{background:var(--brand-bright);color:#163a2c;}
-  .filter-btn .fico{font-size:15px;}
-  .filter-btn .nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;border-radius:20px;padding:1px 7px;}
-
-  .sidebar-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px;}
-  .ghost-btn{
-    background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.16);color:#EAF6EE;
-    padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;
-    display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;
-  }
-  .ghost-btn:hover{background:rgba(255,255,255,0.16);}
+  /* A sidebar lateral antiga já não é usada — o módulo passou a ter a
+     barra superior compacta acima (.mc-module-head) e a barra inferior
+     de navegação (module-chrome.js). */
+  .sidebar{display:none;}
 
   /* ---------- MAIN ---------- */
   main{padding:28px clamp(16px,3vw,34px) 90px;min-width:0;}
@@ -419,37 +380,23 @@
 <body>
 
 <div class="app" id="appRoot">
-  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Mostrar/ocultar barra lateral">‹</button>
+  <div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
+  <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
 
-  <aside class="sidebar">
-    <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
-    <div class="brand">
-      <img class="brand-logo" id="brandLogoImg" src="" alt="Logótipo da farmácia">
-      <span class="brand-sub">Gestão de PIM</span>
-      <span class="brand-tag" id="brandTagFarmacia"></span>
+  <div class="mc-module-head">
+    <img class="mc-logo" id="brandLogoImg" src="" alt="Logótipo da farmácia">
+    <div>
+      <div class="brand-sub">Gestão de PIM</div>
+      <div class="brand-tag" id="brandTagFarmacia"></div>
     </div>
-
     <div class="stat-grid">
       <div class="stat"><b id="statUtentes">0</b><span>Utentes ativos</span></div>
       <div class="stat warn"><b id="statEmbalagens">0</b><span>Caixas a terminar</span></div>
       <div class="stat danger"><b id="statValidades">0</b><span>Validades ≤30d</span></div>
       <div class="stat"><b id="statPim">0</b><span>PIM a terminar</span></div>
     </div>
-
-    <div class="nav-label">Navegação</div>
-    <div class="filters">
-      <button class="filter-btn active" id="navInicio" onclick="switchView('inicio')"><span class="fico">🏠</span> Início</button>
-      <button class="filter-btn" id="navUtentes" onclick="switchView('utentes')"><span class="fico">👤</span> Utentes</button>
-      <button class="filter-btn" id="navCalendario" onclick="switchView('calendario')"><span class="fico">📅</span> Calendário PIM</button>
-      <button class="filter-btn" id="navAlertas" onclick="switchView('alertas')"><span class="fico">🔔</span> Alertas <span class="nbadge" id="navAlertBadge" style="display:none;">0</span></button>
-      <button class="filter-btn" id="navRelatorios" onclick="switchView('relatorios')"><span class="fico">📋</span> Relatórios</button>
-      <button class="filter-btn" id="navConfig" onclick="switchView('config')"><span class="fico">⚙️</span> Configurações</button>
-    </div>
-
-    <div class="sidebar-foot">
-      <span id="syncStatus" style="font-size:10.5px;color:#E0C468;font-weight:600;">☁️ A verificar…</span>
-    </div>
-  </aside>
+    <span id="syncStatus" style="font-size:10.5px;color:#E0C468;font-weight:600;">☁️ A verificar…</span>
+  </div>
 
   <main>
     <!-- ============ INÍCIO ============ -->
@@ -633,6 +580,7 @@
 
 <div class="print-only-holder"><div id="printHolder"></div></div>
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { aoExpirarSessao, makeDataStore } from "../src/db.js";
 import { getToken, limparSessao, getPerfil } from "../src/authClient.js";
@@ -659,13 +607,29 @@ const dataStore = makeDataStore();
    partilhado — nunca o nome captado no registo (pode ficar desatualizado
    se a farmácia o mudar mais tarde). */
 let ESTADO_BRANDING_CACHE = null;
+/* O logótipo passou a viver no seu próprio blob (/api/asset/branding-logo),
+   à parte do resto do estado — ver carregarLogoAsset() mais abaixo e a nota
+   em gravarPim(). ESTADO_BRANDING_CACHE?.config?.logo fica só como recurso
+   para farmácias com um logótipo antigo, gravado antes desta mudança. */
+let ASSET_LOGO_CACHE = null;
 
 function nomeFarmaciaAtual(){
   return ESTADO_BRANDING_CACHE?.config?.nomeFarmacia || getPerfil()?.nomeFarmacia || 'Farmácia';
 }
 
 function logoFarmaciaAtual(){
-  return ESTADO_BRANDING_CACHE?.config?.logo || null;
+  return ASSET_LOGO_CACHE || ESTADO_BRANDING_CACHE?.config?.logo || null;
+}
+
+/** Vai buscar o logótipo ao seu blob próprio — rápido, nunca arrasta o resto do estado. */
+async function carregarLogoAsset(){
+  const cached = window.ModuleChrome.getCachedBranding();
+  if(cached && cached.logo){ ASSET_LOGO_CACHE = cached.logo; aplicarBrandingFarmacia(); }
+  const token = getToken();
+  if(!token) return;
+  const logo = await window.ModuleChrome.fetchLogoAsset(token);
+  if(logo){ ASSET_LOGO_CACHE = logo; aplicarBrandingFarmacia(); }
+  window.ModuleChrome.cacheBranding(nomeFarmaciaAtual(), logoFarmaciaAtual());
 }
 
 function aplicarBrandingFarmacia(){
@@ -692,10 +656,16 @@ async function gravarPim(key, value){
   const estadoAtual = await fetchEstado();
   const token = getToken();
   const novoPim = { ...(estadoAtual.pim || {}), [key]: value };
+  // O logótipo já não é gravado aqui (ver carregarLogoAsset acima) — omite-se
+  // de propósito do "config" reenviado, para que o servidor deixe de o
+  // guardar nesta fatia a partir desta gravação (sem precisar de nenhuma
+  // migração à parte: cada gravação de qualquer módulo vai "limpando-o").
+  const configSemLogo = { ...(estadoAtual.config || {}) };
+  delete configSemLogo.logo;
   const res = await fetch('/api/data', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...estadoAtual, pim: novoPim })
+    body: JSON.stringify({ ...estadoAtual, config: configSemLogo, pim: novoPim })
   });
   if(res.status === 401){ limparSessao(); voltarACentral(); throw new Error('sessão expirada'); }
   if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -705,6 +675,7 @@ async function gravarPim(key, value){
 let FARMACIA_LOGO_SRC = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><circle cx='32' cy='32' r='32' fill='%23C99A2E'/><path d='M32 16v32M16 32h32' stroke='%23fff' stroke-width='7' stroke-linecap='round'/></svg>`); // placeholder genérico — só usado enquanto a farmácia não carregar o seu próprio logótipo em Configurações
 
 aplicarBrandingFarmacia();
+carregarLogoAsset();
 
 /* ===================== PRODUCT DATABASE — catálogo partilhado =====================
    Antes vinha embutida aqui uma cópia própria (~1.6MB) do catálogo — igual,
@@ -1134,13 +1105,24 @@ function computeAlerts(){
   return {validadeAlerts, embalagemAlerts, pimAlerts, semStockAlerts};
 }
 
-/* ===================== SIDEBAR / NAV ===================== */
-function initSidebar(){ applySidebar(localStorage.getItem(SIDEBAR_KEY) === '1'); }
-function toggleSidebar(){ applySidebar(!document.getElementById('appRoot').classList.contains('collapsed')); }
-function applySidebar(collapsed){
-  document.getElementById('appRoot').classList.toggle('collapsed', collapsed);
-  document.getElementById('sidebarToggle').textContent = collapsed ? '›' : '‹';
-  localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
+/* ===================== SIDEBAR / NAV =====================
+   A antiga sidebar lateral colapsável foi substituída pela barra inferior
+   (assets/module-chrome.js) — as 3 funções abaixo mantidas só por
+   compatibilidade com quaisquer chamadas antigas, sem fazerem nada. */
+function initSidebar(){}
+function toggleSidebar(){}
+let mcBar = null;
+function renderBottomBar(alertCount){
+  alertCount = alertCount || 0;
+  const items = [
+    {id:'inicio', icon:'🏠', label:'Início', onSelect:()=>switchView('inicio')},
+    {id:'utentes', icon:'👤', label:'Utentes', onSelect:()=>switchView('utentes')},
+    {id:'calendario', icon:'📅', label:'Calendário', onSelect:()=>switchView('calendario')},
+    {id:'alertas', icon:'🔔', label: alertCount>0 ? `Alertas (${alertCount})` : 'Alertas', onSelect:()=>switchView('alertas')},
+    {id:'relatorios', icon:'📋', label:'Relatórios', onSelect:()=>switchView('relatorios')},
+    {id:'config', icon:'⚙️', label:'Configurações', onSelect:()=>switchView('config')}
+  ];
+  mcBar = window.ModuleChrome.mountBottomBar(items, {activeId: currentView==='utenteDetalhe' ? 'utentes' : currentView});
 }
 function switchView(name, opt){
   currentView = name;
@@ -1149,11 +1131,7 @@ function switchView(name, opt){
     const el = document.getElementById('view'+v.charAt(0).toUpperCase()+v.slice(1));
     if(el) el.style.display = (v===name) ? '' : 'none';
   }
-  const navIds = {inicio:'navInicio', utentes:'navUtentes', calendario:'navCalendario', alertas:'navAlertas', relatorios:'navRelatorios', config:'navConfig'};
-  for(const k in navIds){
-    const el = document.getElementById(navIds[k]);
-    if(el) el.classList.toggle('active', k===name || (name==='utenteDetalhe' && k==='utentes'));
-  }
+  if(mcBar) mcBar.setActive(name==='utenteDetalhe' ? 'utentes' : name);
   if(name==='inicio') renderHome();
   else if(name==='utentes') renderUtentes();
   else if(name==='utenteDetalhe') renderUtenteDetalhe(opt);
@@ -1201,9 +1179,8 @@ function updateStats(){
   document.getElementById('statEmbalagens').textContent = embalagemAlerts.length;
   document.getElementById('statValidades').textContent = validadeAlerts.filter(a=>a.cls!=='ok').length;
   document.getElementById('statPim').textContent = pimAlerts.length;
-  const badge = document.getElementById('navAlertBadge');
   const total = validadeAlerts.length + embalagemAlerts.length + pimAlerts.length + semStockAlerts.length;
-  if(total>0){ badge.style.display=''; badge.textContent = total; } else { badge.style.display='none'; }
+  renderBottomBar(total);
 }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); stopAllScanners(); }
 document.addEventListener('click', e=>{
@@ -1259,6 +1236,7 @@ function openAddUtenteModal(){
   draftUtente = { id:null, nome:'', categoria:'ativo', contacto:{tipo:'Telefone', valor:''}, cuidador:{nome:'', relacao:'', contacto:''},
     morada:'', observacoes:'', pim:{tomasPorDia:'', duracaoDias:30, precoSemana:''},
     pausa:{ativa:false, inicio:'', fim:'', motivo:''}, alertasConfig:{usarPadrao:true, diasEmbalagemAviso:'', diasPimAviso:''} };
+  window.draftUtente = draftUtente; // exposto em window: os campos do modal usam handlers inline (oninput="draftUtente.x=...") que correm no escopo global, não no escopo deste <script type="module">
   document.getElementById('utenteModalTitle').textContent = 'Novo utente';
   renderUtenteModalBody();
   document.getElementById('utenteModalOverlay').classList.add('open');
@@ -1267,6 +1245,7 @@ function openEditUtenteModal(id){
   const u = utenteById(id);
   if(!u) return;
   draftUtente = JSON.parse(JSON.stringify(u));
+  window.draftUtente = draftUtente;
   draftUtente.contacto = draftUtente.contacto || {tipo:'Telefone', valor:''};
   draftUtente.cuidador = draftUtente.cuidador || {nome:'', relacao:'', contacto:''};
   draftUtente.pim = draftUtente.pim || {tomasPorDia:'', duracaoDias:30, precoSemana:''};
@@ -1498,6 +1477,7 @@ function openAddMedModal(){
     unidadesPorEmbalagemPadrao: null,
     pcInicial:'', snInicial:'', loteInicial:'', validadeInicial:'', _scanBoxOpen:false,
     local:'dentro', posologia:{JJ:'',PA:'',AL:'',LA:'',JT:'',DT:''}, observacoes:'', responsabilidadeCuidador:false, ativo:true, _tab:'bd' };
+  window.draftMed = draftMed;
   document.getElementById('medModalTitle').textContent = 'Novo medicamento';
   renderMedModalBody();
   document.getElementById('medModalOverlay').classList.add('open');
@@ -1506,6 +1486,7 @@ function openEditMedModal(id){
   const m = medById(id);
   if(!m) return;
   draftMed = JSON.parse(JSON.stringify(m));
+  window.draftMed = draftMed;
   draftMed.posologia = draftMed.posologia || {JJ:'',PA:'',AL:'',LA:'',JT:'',DT:''};
   if(draftMed.unidadesPorEmbalagemPadrao==null) draftMed.unidadesPorEmbalagemPadrao = null;
   draftMed._tab = 'novo';
@@ -1979,6 +1960,7 @@ function renderUdetailReceitas(){
 }
 function openAddReceitaModal(){
   draftReceita = { id:null, utenteId: currentUtenteId, tipo:'codigos', numeroReceita:'', codigoDispensa:'', codigoOpcao:'', ficheiroNome:'', ficheiroTipo:'', ficheiroDataUrl:'', hasFicheiro:false, notas:'' };
+  window.draftReceita = draftReceita;
   document.getElementById('receitaModalTitle').textContent = 'Nova receita';
   renderReceitaModalBody();
   document.getElementById('receitaModalOverlay').classList.add('open');
@@ -1987,6 +1969,7 @@ function openEditReceitaModal(id){
   const r = RECEITAS.find(x=>x.id===id);
   if(!r) return;
   draftReceita = JSON.parse(JSON.stringify(r));
+  window.draftReceita = draftReceita;
   draftReceita.ficheiroDataUrl = ''; // conteúdo não vive em RECEITAS — só é lido do asset store se preciso
   document.getElementById('receitaModalTitle').textContent = 'Editar receita';
   renderReceitaModalBody();
@@ -2171,6 +2154,7 @@ function openAddStockModal(prefill){
     nomeComercialLab:'', cnp:defaultMed&&defaultMed.cnp?defaultMed.cnp:'', pc:'', sn:'', lote:'', validade:'', unidadesEmbalagem:defaultUnid, quantidadeAtual:defaultUnid,
     status:'em_uso', origem:'manual', notas:''
   }, prefill||{});
+  window.draftStock = draftStock;
   document.getElementById('stockModalTitle').textContent = 'Nova embalagem';
   renderStockModalBody();
   document.getElementById('stockModalOverlay').classList.add('open');
@@ -2192,6 +2176,7 @@ function openEditStockModal(id){
   const it = STOCK.find(x=>x.id===id);
   if(!it) return;
   draftStock = Object.assign({}, it);
+  window.draftStock = draftStock;
   currentUtenteId = it.utenteId;
   document.getElementById('stockModalTitle').textContent = 'Editar embalagem';
   renderStockModalBody();
@@ -2634,6 +2619,7 @@ function openAddEventModal(dateISO){
   closeModal('dayModalOverlay');
   draftEvento = { id:null, utenteId: (currentView==='utenteDetalhe'?currentUtenteId:''), data: dateISO || todayISO(), tipo:'preparacao', notas:'', concluido:false,
     lote:'', responsavelEntrega:'', proximoLevantamento:'', checklist:{stockOk:false, rotuloOk:false, supervisaoOk:false, supervisorNome:''} };
+  window.draftEvento = draftEvento;
   document.getElementById('eventModalTitle').textContent = 'Novo evento';
   document.getElementById('eventDeleteBtn').style.display = 'none';
   renderEventModalBody();
@@ -2643,6 +2629,7 @@ function openEditEventModal(id){
   const e = EVENTOS.find(x=>x.id===id);
   if(!e) return;
   draftEvento = JSON.parse(JSON.stringify(e));
+  window.draftEvento = draftEvento;
   draftEvento.checklist = draftEvento.checklist || {stockOk:false, rotuloOk:false, supervisaoOk:false, supervisorNome:''};
   document.getElementById('eventModalTitle').textContent = 'Editar evento';
   document.getElementById('eventDeleteBtn').style.display = '';
@@ -2785,6 +2772,7 @@ function openRotuloEditor(utenteId){
     preparadoPor: CONFIG.farmaceuticoResponsavel||'', dataPreparacao: todayISO(), observacoes:''
   };
   draftRotulo._syncSignature = JSON.stringify(linhas);
+  window.draftRotulo = draftRotulo;
   renderRotuloEditor();
 }
 function renderRotuloEditor(){
@@ -2879,6 +2867,7 @@ function regenerarRotuloDaMedicacao(){
   draftRotulo.linhasDentro = linhas.linhasDentro;
   draftRotulo.linhasFora = linhas.linhasFora;
   draftRotulo._syncSignature = JSON.stringify(linhas);
+  window.draftRotulo = draftRotulo;
   renderRotuloEditor();
 }
 function salvarRotulo(){
@@ -2900,6 +2889,7 @@ function carregarRotulo(id){
   const r = ROTULOS.find(x=>x.id===id);
   if(!r) return;
   draftRotulo = JSON.parse(JSON.stringify(r));
+  window.draftRotulo = draftRotulo;
   renderRotuloEditor();
   showToast('Rótulo carregado — pode editar livremente antes de reimprimir.');
 }
@@ -3274,7 +3264,7 @@ function renderAll(){
   else if(currentView==='config') renderConfig();
 }
 document.addEventListener('DOMContentLoaded', ()=>{
-  initSidebar();
+  renderBottomBar(0);
   renderHome();
   hydrateFromCloud();
 });

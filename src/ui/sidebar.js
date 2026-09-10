@@ -8,9 +8,9 @@ function nodeIsActive(scope, catId) {
   return (scope.tipo === "categoria" || scope.tipo === "categoria-direta") && scope.categoriaId === catId;
 }
 
-function renderNode(node, state, depth = 0) {
+function renderNode(node, state, depth = 0, forceOpen = false) {
   const temFilhos = node.filhos && node.filhos.length > 0;
-  const expandido = expandedIds.has(node.id);
+  const expandido = forceOpen || expandedIds.has(node.id);
   const count = contarServicosNaCategoria(state.servicos, state.categorias, node.id, true);
   const active = nodeIsActive(state.scope, node.id);
   return `
@@ -26,17 +26,69 @@ function renderNode(node, state, depth = 0) {
         </button>
       </div>
       ${temFilhos ? `<div class="cat-children" style="display:${expandido ? "flex" : "none"};">
-          ${node.filhos.map(f => renderNode(f, state, depth + 1)).join("")}
+          ${node.filhos.map(f => renderNode(f, state, depth + 1, forceOpen)).join("")}
         </div>` : ""}
     </div>`;
 }
 
+/* Filtra a árvore de categorias pela pesquisa da topbar: mantém um nó se o
+   próprio nome corresponde OU se algum descendente corresponde (nesse caso
+   os filhos ficam sempre expandidos, para o resultado ser visível). */
+function filterTree(nodes, ql) {
+  if (!ql) return nodes;
+  const walk = (n) => {
+    const filhos = (n.filhos || []).map(walk).filter(Boolean);
+    const selfMatch = n.nome.toLowerCase().includes(ql);
+    if (!selfMatch && !filhos.length) return null;
+    return { ...n, filhos };
+  };
+  return nodes.map(walk).filter(Boolean);
+}
+
+const MODULOS = [
+  { id: "manipulados", icon: "capsule", label: "Manipulados" },
+  { id: "documentos", icon: "folder", label: "Documentos" },
+  { id: "gabinete", icon: "boxes", label: "Gestão de Gabinete" },
+  { id: "pim", icon: "checkCircle", label: "Gestão de PIM" },
+  { id: "aue", icon: "tag", label: "Pedidos AUE" },
+  { id: "stocks", icon: "chart", label: "Stocks Errados" }
+];
+const FERRAMENTAS = [
+  { id: "reservas", icon: "list", label: "Reservas" },
+  { id: "medela", icon: "edit", label: "Aluguer Medela" },
+  { id: "conversor-pdf", icon: "refresh", label: "Conversor de PDF" },
+  { id: "devolucao-frio", icon: "alertTriangle", label: "Devolução de Frio" },
+  { id: "mapa-cardiovascular", icon: "bolt", label: "Mapa Cardiovascular" },
+  { id: "devolucoes-armazenistas", icon: "download", label: "Devoluções a Armazenistas" },
+  { id: "catalogo-produtos", icon: "grid", label: "Catálogo de Produtos" }
+];
+
+function moduloBtn(item, state, ql) {
+  const active = state.scope.tipo === "modulo" && state.scope.modulo === item.id;
+  const noMatch = ql && !item.label.toLowerCase().includes(ql) ? "no-match" : "";
+  return `<button class="nav-item ${active ? "active" : ""} ${noMatch}" data-modulo="${item.id}">${icon(item.icon)} ${item.label}</button>`;
+}
+
 export function renderSidebar(container, state, handlers) {
   const stats = getStats(state);
-  const tree = buildCategoryTree(state.categorias);
+  const ql = (state.searchQuery || "").trim().toLowerCase();
+  const tree = filterTree(buildCategoryTree(state.categorias), ql);
   const indefCount = state.servicos.filter(s => (s.categoriaId || CATEGORIA_INDEFINIDA_ID) === CATEGORIA_INDEFINIDA_ID).length;
+  const indefMatch = !ql || "categoria indefinida".includes(ql);
+  const modulosMatch = !ql || MODULOS.some(m => m.label.toLowerCase().includes(ql));
+  const ferramentasMatch = !ql || FERRAMENTAS.some(m => m.label.toLowerCase().includes(ql));
+  const modulosHtml = MODULOS.map(m => moduloBtn(m, state, ql)).join("");
+  const ferramentasHtml = FERRAMENTAS.map(m => moduloBtn(m, state, ql)).join("");
+  const nadaEncontrado = ql && MODULOS.every(m => !m.label.toLowerCase().includes(ql))
+    && FERRAMENTAS.every(m => !m.label.toLowerCase().includes(ql))
+    && !tree.length && !indefMatch;
 
   container.innerHTML = `
+    <div class="sidebar-head">
+      <span>Navegação</span>
+      <button class="sidebar-close" data-close-sidebar title="Fechar">${icon("close")}</button>
+    </div>
+
     <div class="brand">
       ${state.logoBase64
         ? `<img class="brand-logo" src="${state.logoBase64}" alt="Logótipo">`
@@ -63,26 +115,17 @@ export function renderSidebar(container, state, handlers) {
       <button class="nav-item ${state.scope.tipo === "tudo" ? "active" : ""}" data-nav="tudo">${icon("layers")} Ver tudo <span class="nav-count">${stats.total}</span></button>
     </div>
 
-    <div class="nav-flat">
-      <div class="nav-label" style="margin-bottom:4px;">Módulos</div>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "manipulados" ? "active" : ""}" data-modulo="manipulados">${icon("capsule")} Manipulados</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "documentos" ? "active" : ""}" data-modulo="documentos">${icon("folder")} Documentos</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "gabinete" ? "active" : ""}" data-modulo="gabinete">${icon("boxes")} Gestão de Gabinete</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "pim" ? "active" : ""}" data-modulo="pim">${icon("checkCircle")} Gestão de PIM</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "aue" ? "active" : ""}" data-modulo="aue">${icon("tag")} Pedidos AUE</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "stocks" ? "active" : ""}" data-modulo="stocks">${icon("chart")} Stocks Errados</button>
-    </div>
+    ${nadaEncontrado ? `<p style="font-size:.74rem;color:#a9cdb8;padding:4px;">Sem resultados para "${escapeHtml(state.searchQuery.trim())}" nos módulos, ferramentas ou categorias.</p>` : ""}
 
-    <div class="nav-flat">
+    ${modulosMatch ? `<div class="nav-flat">
+      <div class="nav-label" style="margin-bottom:4px;">Módulos</div>
+      ${modulosHtml}
+    </div>` : ""}
+
+    ${ferramentasMatch ? `<div class="nav-flat">
       <div class="nav-label" style="margin-bottom:4px;">Ferramentas</div>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "reservas" ? "active" : ""}" data-modulo="reservas">${icon("list")} Reservas</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "medela" ? "active" : ""}" data-modulo="medela">${icon("edit")} Aluguer Medela</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "conversor-pdf" ? "active" : ""}" data-modulo="conversor-pdf">${icon("refresh")} Conversor de PDF</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "devolucao-frio" ? "active" : ""}" data-modulo="devolucao-frio">${icon("alertTriangle")} Devolução de Frio</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "mapa-cardiovascular" ? "active" : ""}" data-modulo="mapa-cardiovascular">${icon("bolt")} Mapa Cardiovascular</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "devolucoes-armazenistas" ? "active" : ""}" data-modulo="devolucoes-armazenistas">${icon("download")} Devoluções a Armazenistas</button>
-      <button class="nav-item ${state.scope.tipo === "modulo" && state.scope.modulo === "catalogo-produtos" ? "active" : ""}" data-modulo="catalogo-produtos">${icon("grid")} Catálogo de Produtos</button>
-    </div>
+      ${ferramentasHtml}
+    </div>` : ""}
 
     <div class="sidebar-section-categorias">
       <div class="nav-label">
@@ -90,8 +133,8 @@ export function renderSidebar(container, state, handlers) {
         <button data-add-cat title="Nova categoria" style="background:none;border:none;color:#cdeada;">${icon("plus")}</button>
       </div>
       <div class="category-tree" id="categoryTree">
-        ${tree.map(n => renderNode(n, state)).join("") || `<p style="font-size:.72rem;color:#a9cdb8;padding:6px 4px;">Sem categorias ainda.</p>`}
-        ${indefCount > 0 ? `
+        ${tree.map(n => renderNode(n, state, 0, !!ql)).join("") || `<p style="font-size:.72rem;color:#a9cdb8;padding:6px 4px;">${ql ? "Sem categorias correspondentes." : "Sem categorias ainda."}</p>`}
+        ${indefCount > 0 && indefMatch ? `
           <div class="cat-node">
             <div class="cat-node-row ${state.scope.categoriaId === "cat_indefinida" ? "active" : ""}">
               <span class="cat-toggle spacer">${icon("chevronRight")}</span>
@@ -112,7 +155,8 @@ export function renderSidebar(container, state, handlers) {
         <span>${state.syncStatus === "synced" ? "Sincronizado" : state.syncStatus === "syncing" ? "A sincronizar..." : "Erro ao sincronizar"}</span>
       </div>
       <a class="dev-badge" href="tel:+351963257770" title="Contacto: +351 963 257 770">
-        <img src="assets/dev-logo.png" alt="Ivo Batalha Software Development">
+        <img src="assets/dev-logo.png" alt="Ivo Batalha Software Development" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="dev-icon" style="display:none;">👨‍💻</div>
         <div class="dev-text">
           <small>Desenvolvido por</small>
           <span>Ivo Batalha</span>

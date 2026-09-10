@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stocks Errados · Central Operacional</title>
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
   :root{
     --ink:#1c2521;
@@ -190,6 +191,7 @@
 </style>
 </head>
 <body>
+<div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
 <div class="wrap">
 
   <header class="top">
@@ -344,6 +346,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
 
+<script src="../assets/module-chrome.js"></script>
 <script type="text/plain" id="logo-b64">iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAADrklEQVR4nO2dS5LTQBQEBcFpYAungePBaWAL14EFoQlZliz1930qcz0TdL/KrrYtE7MsAKDLO+sFzOD7549/a3/3268/qWeUanMtQZeSRYzQm5gZ+BVRhQi3aE+hnxFJhhALjRD6Gd5lcL24yMHv8SqCy0VlCn6PNxFcLSZz8Hu8iOBiEUrB77EW4b3lP74s2uEvi/3+zeyz3rhHLNrApAEI/xiLuUw1juDvM6sNpjUA4Zcxa15TBCD8OmbMbWjNEHw/Rl0JwxqA8Psyap5DBCD8MYyYa3cBCH8svefbVQDCn0PPOXcTgPDn0mveXQQgfBt6zN38YRDY0iwAp9+W1vk3CUD4PmjJoVoAwvdFbR68BhCnSgBOv09qcil+wBA9/K8/f1/+zI8vnyasZBwlD46kroA74Zf8XAaKBIh8+ktDjSxBSU63BVAKv/X3PHA3r/RXQGuIkSW4wy0BIp9+Ze7klr4B4DWXAnD6Y3OVHw0gzksBOP05eJUjDSDOqQCc/lyc5UkDiIMA4hwKQP3n5ChXGkAcBBDnSQDqPzf7fGkAcRBAHAQQ50EA7n8NtjnTAOIggDgIIA4CiPPBegErnr99O2ptHv4H0lsDWL4D8Bz+SCz3veZtfgWohr9ivX9TAaw37wXLOZgJQPiPWM3D/AoAWxBAHAQQBwHEQQBxEEAcBBAHAcQxE8DDgxBPWM3DtAGQ4D+WczC/AtQlsN7/mwCWf8XaeghWWO57zdvNF0JGDaPHQ5bMgppfAWALAoiDAOIggDgPAli+E4B5bHOmAcRBAHEQQJwnAXgdkJt9vjSAOAggzqEAXAM5OcqVBhAHAcQ5FYBrIBdnedIA4rwUgBbIwascaQBxLgWgBWJzlR8NIM4tAWiBmNzJLX0DtH6jN/M3gpelQIDILVAbYuTw7+ZV1ABKEiiEvywCV8CWu6FGDr+UqhPN3xXwS2lLVzVA5KsgMzW5SF0B8Ey1ALSAL2rzaGoAJPBBSw7NVwAS2NI6f14DiNNFAFrAhh5z79YASDCXXvPuegUgwRx6zrn7awAkGEvv+Q55EYgEYxgx12HvApCgL6PmOSUkHh7VM/ogTfkcgDaoY8bcpn0QhARlzJqXSShcCefMPigmHwXTBsdYzMU8CNrA9kCYPwxSbwPr/bsavlIbWAe/4mIRezKL4CX4FVeL2ZNJBG/Br7hc1J7IIngNfsX14o6IIIP30LeEWegRnmSIFPqWkIs+Y6YQUQPfk2ITV7SIkSVogEP+AY+dYPUO9yLpAAAAAElFTkSuQmCC</script>
 
 <script type="module">
@@ -373,13 +376,26 @@ const dataStore = makeDataStore();
    se a farmácia o mudar mais tarde). */
 let ESTADO_BRANDING_CACHE = null;
 let FARMACIA_LOGO_SRC = document.getElementById('brandLogoImg') ? document.getElementById('brandLogoImg').getAttribute('src') : null; // placeholder genérico — só usado enquanto a farmácia não carregar o seu próprio logótipo em Configurações
+/* Logótipo movido para o seu próprio blob (/api/asset/branding-logo) — ver
+   carregarLogoAsset() abaixo e a nota em gravarStocksErrados(). */
+let ASSET_LOGO_CACHE = null;
 
 function nomeFarmaciaAtual(){
   return ESTADO_BRANDING_CACHE?.config?.nomeFarmacia || getPerfil()?.nomeFarmacia || 'Farmácia';
 }
 
 function logoFarmaciaAtual(){
-  return ESTADO_BRANDING_CACHE?.config?.logo || null;
+  return ASSET_LOGO_CACHE || ESTADO_BRANDING_CACHE?.config?.logo || null;
+}
+
+async function carregarLogoAsset(){
+  const cached = window.ModuleChrome.getCachedBranding();
+  if(cached && cached.logo){ ASSET_LOGO_CACHE = cached.logo; aplicarBrandingFarmacia(); }
+  const token = getToken();
+  if(!token) return;
+  const logo = await window.ModuleChrome.fetchLogoAsset(token);
+  if(logo){ ASSET_LOGO_CACHE = logo; aplicarBrandingFarmacia(); }
+  window.ModuleChrome.cacheBranding(nomeFarmaciaAtual(), logoFarmaciaAtual());
 }
 
 function aplicarBrandingFarmacia(){
@@ -413,16 +429,20 @@ async function fetchEstado(){
 async function gravarStocksErrados(novasListas){
   const estadoAtual = await fetchEstado();
   const token = getToken();
+  // Logótipo omitido de propósito (ver carregarLogoAsset acima).
+  const configSemLogo = { ...(estadoAtual.config || {}) };
+  delete configSemLogo.logo;
   const res = await fetch('/api/data', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...estadoAtual, stocksErrados: novasListas })
+    body: JSON.stringify({ ...estadoAtual, config: configSemLogo, stocksErrados: novasListas })
   });
   if(res.status === 401){ limparSessao(); voltarACentral(); throw new Error('sessão expirada'); }
   if(!res.ok) throw new Error('HTTP ' + res.status);
 }
 
 aplicarBrandingFarmacia();
+carregarLogoAsset();
 
 (function(){
 'use strict';

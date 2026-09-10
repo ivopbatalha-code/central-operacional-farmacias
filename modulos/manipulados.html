@@ -6,6 +6,7 @@
 <title>Manipulados · Central Operacional</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
   :root{
     --green-deep:#1f543e;
@@ -35,36 +36,26 @@
     color:var(--ink);
     -webkit-font-smoothing:antialiased;
   }
-  .app{
-    display:grid;
-    grid-template-columns:minmax(210px,272px) minmax(0,1fr);
-    min-height:100vh;
-    transition:grid-template-columns .22s ease;
-  }
-  .app.collapsed{
-    grid-template-columns:0px minmax(0,1fr);
-  }
-  .app.collapsed .sidebar{padding-left:0;padding-right:0;opacity:0;pointer-events:none;}
-  .sidebar-toggle{
-    position:fixed;top:18px;left:258px;z-index:60;
-    width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
-    background:#fff;color:var(--green-deep);box-shadow:var(--shadow);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;
-    transition:left .22s ease;
-  }
-  .app.collapsed .sidebar-toggle{left:14px;}
+  .app{ min-height:100vh; }
 
-  /* ---------- SIDEBAR ---------- */
-  .sidebar{
+  /* ---------- CABEÇALHO COMPACTO DO MÓDULO (substitui a antiga sidebar
+     fixa de 272px — os filtros de estado passaram para a barra inferior,
+     ver assets/module-chrome.css/js) ---------- */
+  .mc-module-head{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
     background:linear-gradient(180deg,var(--green-deep) 0%, #0F3B22 100%);
-    color:#EAF6EE;
-    padding:26px 20px 24px;
-    display:flex;
-    flex-direction:column;
-    gap:26px;
-    overflow:hidden;
-    transition:opacity .18s ease, padding .22s ease;
+    color:#EAF6EE; padding:12px 18px; margin-bottom:18px;
   }
+  .mc-module-head .brand-sub{font-weight:800;font-size:14px;}
+  .mc-module-head .brand-tag{font-size:11.5px;color:#B7E4C7;font-weight:600;}
+  .mc-module-head .stat-grid{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;}
+  .mc-module-head .stat{background:rgba(255,255,255,.08);border-radius:10px;padding:5px 10px;font-size:11px;display:flex;gap:5px;align-items:baseline;}
+  .mc-module-head .stat b{font-size:13.5px;}
+  .mc-module-head .stat.warn b{color:#F3C77E;}
+
+  /* ---------- SIDEBAR (obsoleta — nunca mostrada; mantida só para não
+     partir seletores/ids antigos referenciados no resto do ficheiro) ---------- */
+  .sidebar{ display:none; }
   .brand{
     display:flex;
     flex-direction:column;
@@ -299,36 +290,24 @@
 </style>
 <body>
 
+<div class="mc-standalone-bar" id="mcStandaloneBar">
+  <a href="/">← Voltar à Central Operacional</a>
+</div>
 <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
 
 <div class="app" id="appRoot">
-  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Mostrar/ocultar barra lateral">‹</button>
-
-  <aside class="sidebar">
-    <div class="brand">
-      <span class="brand-mark" id="brandMarkEmoji" aria-hidden="true">💊</span>
-      <img id="brandLogoImg" alt="Logótipo da farmácia">
-      <span class="brand-sub">Gestão de Manipulados</span>
-      <span class="brand-tag" id="brandTagFarmacia"></span>
+  <div class="mc-module-head">
+    <span class="brand-mark" id="brandMarkEmoji" aria-hidden="true">💊</span>
+    <img class="mc-logo" id="brandLogoImg" alt="Logótipo da farmácia" style="display:none;">
+    <div>
+      <div class="brand-sub">Gestão de Manipulados</div>
+      <div class="brand-tag" id="brandTagFarmacia"></div>
     </div>
-
     <div class="stat-grid" id="statGrid"></div>
-
-    <div class="nav-label">Estado</div>
-    <div class="filters" id="filterList"></div>
-
-    <button class="filter-btn" onclick="manualResync()" title="Clicar para forçar nova sincronização" style="border:1px solid rgba(255,255,255,0.1);">
-      <span><span class="dot" id="netlifySyncDot" style="background:#E8B23D;"></span><span id="netlifySyncLabel">A sincronizar…</span></span>
-      <span>🔄</span>
+    <button class="filter-btn" onclick="manualResync()" title="Clicar para forçar nova sincronização" style="border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,.06);color:#EAF6EE;border-radius:10px;padding:5px 10px;font-size:11px;display:flex;gap:6px;align-items:center;">
+      <span class="dot" id="netlifySyncDot" style="width:7px;height:7px;border-radius:50%;background:#E8B23D;display:inline-block;"></span><span id="netlifySyncLabel">A sincronizar…</span> 🔄
     </button>
-
-    <div class="sidebar-foot">
-      <button class="ghost-btn" onclick="document.getElementById('fileHidden').click()">⇪ Importar CSV / Excel</button>
-      <button class="ghost-btn" onclick="exportCSV()">⇩ Exportar para CSV</button>
-      <button class="ghost-btn" onclick="openEmailSettingsModal()">✉ Definições de email</button>
-      <input type="file" id="fileHidden" accept=".csv" onchange="handleImport(event)">
-    </div>
-  </aside>
+  </div>
 
   <main>
     <div class="topbar">
@@ -338,6 +317,10 @@
         <input id="searchInput" type="text" placeholder="Pesquisar por nome, NIF, receita, telefone…" oninput="render()">
       </div>
       <button class="btn-secondary" onclick="cycleSort()">↕ Ordenar: <span id="sortLabel">Mais recentes</span></button>
+      <button class="btn-secondary" onclick="document.getElementById('fileHidden').click()">⇪ Importar</button>
+      <button class="btn-secondary" onclick="exportCSV()">⇩ Exportar</button>
+      <button class="btn-secondary" onclick="openEmailSettingsModal()">✉ Email</button>
+      <input type="file" id="fileHidden" accept=".csv" onchange="handleImport(event)" style="display:none;">
       <button class="btn-primary" onclick="openModal()">+ Novo pedido</button>
     </div>
 
@@ -467,6 +450,7 @@
   </div>
 </div>
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { makeDataStore, aoExpirarSessao } from "../src/db.js";
 import { getToken, limparSessao, getPerfil } from "../src/authClient.js";
@@ -495,13 +479,26 @@ aoExpirarSessao(() => {
    partilhado — nunca o nome captado no registo (pode ficar desatualizado
    se a farmácia o mudar mais tarde). */
 let ESTADO_BRANDING_CACHE = null;
+/* Logótipo movido para o seu próprio blob (/api/asset/branding-logo) — ver
+   carregarLogoAsset() abaixo e a nota em gravarManipulados(). */
+let ASSET_LOGO_CACHE = null;
 
 function nomeFarmaciaAtual(){
   return ESTADO_BRANDING_CACHE?.config?.nomeFarmacia || getPerfil()?.nomeFarmacia || 'Farmácia';
 }
 
 function logoFarmaciaAtual(){
-  return ESTADO_BRANDING_CACHE?.config?.logo || null;
+  return ASSET_LOGO_CACHE || ESTADO_BRANDING_CACHE?.config?.logo || null;
+}
+
+async function carregarLogoAsset(){
+  const cached = window.ModuleChrome.getCachedBranding();
+  if(cached && cached.logo){ ASSET_LOGO_CACHE = cached.logo; aplicarBrandingFarmacia(); }
+  const token = getToken();
+  if(!token) return;
+  const logo = await window.ModuleChrome.fetchLogoAsset(token);
+  if(logo){ ASSET_LOGO_CACHE = logo; aplicarBrandingFarmacia(); }
+  window.ModuleChrome.cacheBranding(nomeFarmaciaAtual(), logoFarmaciaAtual());
 }
 
 function aplicarBrandingFarmacia(){
@@ -530,14 +527,18 @@ async function fetchEstado(){
 }
 
 aplicarBrandingFarmacia();
+carregarLogoAsset();
 
 async function gravarManipulados(novaLista){
   const estadoAtual = await fetchEstado();
   const token = getToken();
+  // Logótipo omitido de propósito (ver carregarLogoAsset acima).
+  const configSemLogo = { ...(estadoAtual.config || {}) };
+  delete configSemLogo.logo;
   const res = await fetch('/api/data', {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...estadoAtual, manipulados: novaLista })
+    body: JSON.stringify({ ...estadoAtual, config: configSemLogo, manipulados: novaLista })
   });
   if(res.status === 401){ limparSessao(); voltarACentral(); throw new Error('sessão expirada'); }
   if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -629,7 +630,7 @@ function manualResync(){
 function uid(){ return 'p_' + Math.random().toString(36).slice(2,10); }
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 
-/* ---------------- RENDER: SIDEBAR ---------------- */
+/* ---------------- RENDER: CABEÇALHO + BARRA DE FILTROS (inferior) ---------------- */
 function renderSidebar(){
   const total = pedidos.length;
   const late = pedidos.filter(isLate).length;
@@ -645,12 +646,13 @@ function renderSidebar(){
     {key:'todos', label:'Pedidos ativos', dot:'#8FC3A0'},
     ...Object.entries(STATUS).map(([k,v])=>({key:k,label:v.label,dot:dotColor(k)}))
   ];
-  document.getElementById('filterList').innerHTML = items.map(it=>`
-    <button class="filter-btn ${activeFilter===it.key?'active':''}" onclick="setFilter('${it.key}')">
-      <span><span class="dot" style="background:${it.dot}"></span>${it.label}</span>
-      <count>${counts[it.key]||0}</count>
-    </button>
-  `).join('');
+  const bbItems = items.map(it => ({
+    id: it.key,
+    icon: `<span style="width:8px;height:8px;border-radius:50%;background:${it.dot};display:inline-block;"></span>`,
+    label: `${it.label}${counts[it.key] ? ' (' + counts[it.key] + ')' : ''}`,
+    onSelect: () => setFilter(it.key)
+  }));
+  window.ModuleChrome.mountBottomBar(bbItems, { activeId: activeFilter });
 }
 function dotColor(k){
   return {pendente_utente:'#C97F1E',pendente_farmacia:'#8034A8',preparacao:'#2E6FA3',pronto:'#4f9c72',entregue:'#9AA69E',cancelado:'#C0433B'}[k];
@@ -1115,22 +1117,10 @@ document.addEventListener('keydown', (e)=>{
   if(e.key==='Escape'){ closeModal(); closeLightbox(); closeEmailPreview(); }
 });
 
-/* ---------------- SIDEBAR RETRÁTIL ---------------- */
-function initSidebar(){
-  const collapsed = localStorage.getItem(SIDEBAR_KEY) === '1';
-  applySidebar(collapsed);
-}
-function toggleSidebar(){
-  const isCollapsed = document.getElementById('appRoot').classList.contains('collapsed');
-  applySidebar(!isCollapsed);
-}
-function applySidebar(collapsed){
-  const app = document.getElementById('appRoot');
-  const btn = document.getElementById('sidebarToggle');
-  app.classList.toggle('collapsed', collapsed);
-  btn.textContent = collapsed ? '›' : '‹';
-  localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
-}
+/* A antiga sidebar lateral colapsável foi substituída pela barra inferior
+   (assets/module-chrome.js) — mantidas só por compatibilidade, sem fazerem nada. */
+function initSidebar(){}
+function toggleSidebar(){}
 
 /* ---- definições de email (destino do pedido de orçamento) ---- */
 const EMAIL_SETTINGS_KEY = 'famam_email_settings';

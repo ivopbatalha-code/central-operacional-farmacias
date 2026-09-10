@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DocConvert Pro · Central Operacional</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
@@ -130,6 +131,7 @@ footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--tx3)}
 </style>
 </head>
 <body>
+<div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
 <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
 <header>
   <div class="badge">📁 DocConvert Pro</div>
@@ -313,6 +315,7 @@ footer{text-align:center;padding:2rem;font-size:.72rem;color:var(--tx3)}
 <div class="tc" id="TC"></div>
 <footer>DocConvert Pro — 100% local. Os seus ficheiros nunca saem do dispositivo. Sem limites de tamanho ou quantidade.</footer>
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { aoExpirarSessao } from "../src/db.js";
 import { getToken, limparSessao } from "../src/authClient.js";
@@ -329,7 +332,20 @@ aoExpirarSessao(() => {
 
 if(!getToken()) voltarACentral();
 
-pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+// Se o cdnjs (biblioteca pdf.js) não carregar — rede em falta, firewall,
+// bloqueador de anúncios — isto não deve rebentar a página inteira com um
+// ReferenceError silencioso; mostra um aviso claro e o resto do módulo
+// continua a funcionar (mesmo sem conseguir converter PDFs).
+if(typeof pdfjsLib === 'undefined'){
+  window.addEventListener('DOMContentLoaded', () => {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#F0B4B4;color:#5a1a1a;padding:10px 16px;text-align:center;z-index:9999;font:14px sans-serif;';
+    el.textContent = '⚠️ Não foi possível carregar a biblioteca de conversão de PDF (sem ligação à rede?). Recarregue a página quando a ligação voltar.';
+    document.body.prepend(el);
+  });
+} else {
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
 const S={s:{files:[],fmt:'png'},m:{files:[],fmt:'pdf'}};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 

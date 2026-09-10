@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MAPA 48h · Central Operacional</title>
+<link rel="stylesheet" href="../assets/module-chrome.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -432,6 +433,8 @@ body {
 </style>
 </head>
 <body>
+
+<div class="mc-standalone-bar" id="mcStandaloneBar"><a href="/">← Voltar à Central Operacional</a></div>
 
 <!-- PAGE 1: REQUISIÇÃO -->
 <div class="page">
@@ -1015,6 +1018,7 @@ body {
 <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
 <button class="print-btn" onclick="window.print()">🖨️ Imprimir</button>
 
+<script src="../assets/module-chrome.js"></script>
 <script type="module">
 import { aoExpirarSessao } from "../src/db.js";
 import { getToken, limparSessao, getPerfil } from "../src/authClient.js";
@@ -1037,6 +1041,9 @@ if(!getToken()) voltarACentral();
    ferramenta não tem estado próprio a gravar, por isso só faz uma leitura
    (GET) ao arrancar. */
 let ESTADO_BRANDING_CACHE = null;
+/* Logótipo movido para o seu próprio blob (/api/asset/branding-logo) — ver
+   carregarLogoAsset() abaixo. */
+let ASSET_LOGO_CACHE = null;
 
 function nomeFarmaciaAtual(){
   return ESTADO_BRANDING_CACHE?.config?.nomeFarmacia || getPerfil()?.nomeFarmacia || 'Farmácia';
@@ -1045,7 +1052,7 @@ function nomeFarmaciaAtual(){
 function aplicarBrandingFarmacia(){
   document.getElementById('declNomeFarmacia').textContent = nomeFarmaciaAtual();
   document.querySelectorAll('.farmacia-nome-inline').forEach(el => { el.textContent = nomeFarmaciaAtual(); });
-  const logo = ESTADO_BRANDING_CACHE?.config?.logo;
+  const logo = ASSET_LOGO_CACHE || ESTADO_BRANDING_CACHE?.config?.logo;
   if(logo){
     for(let i=1;i<=3;i++){
       const img = document.getElementById('brandLogoImg'+i);
@@ -1067,6 +1074,17 @@ aplicarBrandingFarmacia();
     aplicarBrandingFarmacia();
   }catch(e){ /* mantém o nome do registo/logótipo genérico como reserva */ }
 })();
+
+async function carregarLogoAsset(){
+  const cached = window.ModuleChrome.getCachedBranding();
+  if(cached && cached.logo){ ASSET_LOGO_CACHE = cached.logo; aplicarBrandingFarmacia(); }
+  const token = getToken();
+  if(!token) return;
+  const logo = await window.ModuleChrome.fetchLogoAsset(token);
+  if(logo){ ASSET_LOGO_CACHE = logo; aplicarBrandingFarmacia(); }
+  window.ModuleChrome.cacheBranding(nomeFarmaciaAtual(), ASSET_LOGO_CACHE);
+}
+carregarLogoAsset();
 </script>
 </body>
 </html>

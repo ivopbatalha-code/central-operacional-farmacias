@@ -53,10 +53,19 @@ async function ensureLoaded() {
 }
 
 async function persist() {
+  // O logótipo já não é gravado aqui (ver getAsset/setAsset "branding-logo"
+  // mais abaixo) — só ainda pode estar presente em `cache.config.logo` por
+  // termos lido uma conta antiga, de antes desta mudança. Omitimo-lo
+  // deliberadamente do que é reenviado (sem apagar `cache.config.logo` da
+  // cópia em memória, que continua a servir de recurso de recurso a
+  // `getConfig("logo")`) para que o servidor deixe de o guardar já a partir
+  // desta gravação — sem precisar de nenhum passo de migração à parte.
+  const configParaEnviar = { ...(cache.config || {}) };
+  delete configParaEnviar.logo;
   const res = await fetchAutenticado(API_URL, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(cache)
+    body: JSON.stringify({ ...cache, config: configParaEnviar })
   });
   if (!res.ok) throw new Error(`Não foi possível gravar os dados no servidor (HTTP ${res.status}).`);
 }
@@ -204,6 +213,20 @@ export function makeDataStore() {
 /** Liga-se ao servidor pela primeira vez (equivalente ao antigo "abrir a base de dados"). */
 export async function initRemote() {
   await ensureLoaded();
+}
+
+/**
+ * Cache local (mesma chave usada por assets/module-chrome.js) do nome e
+ * logótipo da farmácia — permite que os módulos (abertos num <iframe> da
+ * mesma origem) pintem instantaneamente o cabeçalho, sem esperar pela sua
+ * própria chamada de rede, assim que a Central os tiver carregado alguma
+ * vez nesta sessão de navegador.
+ */
+const BRANDING_CACHE_KEY = "central_saas_branding_cache_v1";
+export function cacheBrandingLocal(nomeFarmacia, logo) {
+  try {
+    localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify({ nomeFarmacia: nomeFarmacia || null, logo: logo || null, ts: Date.now() }));
+  } catch (e) { /* localStorage indisponível — não é crítico */ }
 }
 
 /** Usado apenas pelos testes automatizados, para isolar o cache do módulo entre casos de teste. */
