@@ -1286,6 +1286,7 @@ function runBatch(){
   } else if(resolved.size===0){
     toast('Adicione produtos à lista para verificar.');
   }
+  return resolved.size;
 }
 function batchItemHTML(c){
   const pills = WHOLESALERS.map(w=>wpillHTML(w, c.perW[w].status)).join('');
@@ -1686,12 +1687,16 @@ $('#productsShowOnlyEdited').addEventListener('change', ()=>renderProductsTable(
 wireSearchBox('#batchSearch', '#batchSuggest', (p)=>{
   batchChips.set(p[1], p); renderChips(); $('#batchSearch').value='';
 });
-$('#btnRunBatch').addEventListener('click', runBatch);
+$('#btnRunBatch').addEventListener('click', ()=>{
+  const n = runBatch();
+  if(window.ModuleChrome && n>0) window.ModuleChrome.registarUso('devolucoes-armazenistas','verificar_lote', n);
+});
 $('#btnClearBatch').addEventListener('click', ()=>{
   batchChips.clear(); renderChips(); $('#batchInput').value=''; $('#batchResults').style.display='none';
 });
 wireSearchBox('#singleSearch', '#singleSuggest', (p)=>{
   $('#singleSearch').value = p[0]; showSingleResult(p);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('devolucoes-armazenistas','consultar_regra');
 });
 
 /* ============================================================

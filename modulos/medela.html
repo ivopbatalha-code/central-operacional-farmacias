@@ -33,7 +33,7 @@ body {
   padding: 10px 24px 8px;
   border-bottom: 3px solid #2b7a4b;
 }
-.logo-farmacia img { height: 110px; object-fit: contain; }
+.logo-farmacia img { height: 440px; object-fit: contain; }
 .title-center {
   text-align: center;
   flex: 1;
@@ -499,7 +499,7 @@ body {
 
 </div>
 <a class="module-back no-print" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimir / PDF</button>
+<button class="print-btn" onclick="gerarContrato()">🖨️ Imprimir / PDF</button>
 
 <script src="../assets/module-chrome.js"></script>
 <script type="module">
@@ -510,6 +510,12 @@ function voltarACentral(){
   window.top.location.href = "/";
 }
 window.voltarACentral = voltarACentral;
+
+function gerarContrato(){
+  window.print();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('medela', 'gerar_contrato');
+}
+window.gerarContrato = gerarContrato;
 
 aoExpirarSessao(() => {
   limparSessao();

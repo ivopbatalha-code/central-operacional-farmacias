@@ -546,6 +546,7 @@ async function doSplit(){
   }
   hprg('s');dlArea.style.display='block';dlArea.classList.add('on');document.getElementById('btn-s').disabled=false;
   toast(`✅ ${results.length} ficheiro(s) convertido(s)!`,'ok');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('conversor-pdf','converter_ficheiro');
 }
 
 // ═══ MERGE ═══
@@ -607,6 +608,7 @@ async function doMerge(){
   const dlbtn=document.getElementById('m-dlbtn');dlbtn.onclick=()=>dlblob(blob,fn);dlbtn.textContent=`⬇ Descarregar ${fn.split('.').pop().toUpperCase()}`;
   const dla=document.getElementById('m-dl');dla.style.display='block';dla.classList.add('on');document.getElementById('btn-m').disabled=false;
   toast(`✅ ${fn} criado com sucesso!`,'ok');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('conversor-pdf','converter_ficheiro');
 }
 
 /* Exposição global — necessária p/ handlers inline (onclick="...") em módulos ES,

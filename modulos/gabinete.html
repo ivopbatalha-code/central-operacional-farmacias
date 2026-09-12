@@ -148,6 +148,7 @@
   .stock-row .sinfo .smeta{font-size:11.5px;color:var(--ink-soft);font-weight:600;display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;}
   .stock-row .sinfo .smeta span{display:inline-flex;align-items:center;gap:3px;}
   .stock-row .scodes{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-soft);}
+  .cnp-qr{display:inline-block;vertical-align:middle;border-radius:3px;background:#fff;box-shadow:0 0 0 1px var(--line);}
   .stock-qty{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13px;background:var(--grey-bg);border-radius:9px;padding:5px 10px;}
   .stock-qty button{background:none;border:none;color:var(--brand-mid);font-weight:800;font-size:15px;cursor:pointer;width:20px;}
   .status-pill{font-size:10.5px;font-weight:800;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
@@ -236,7 +237,7 @@
   /* ---------- Print sheet ---------- */
   .print-sheet{background:#fff;width:100%;max-width:760px;box-shadow:0 4px 18px rgba(0,0,0,0.10);border-radius:4px;overflow:visible;font-family:'Inter',sans-serif;color:#241a35;margin:0 auto;}
   .ps-header{background:linear-gradient(120deg,#163a2c 0%, #1f543e 55%, #2b7a4b 100%);padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .ps-header img{height:44px;background:#fff;border-radius:8px;padding:5px 8px;}
+  .ps-header img{height:176px;object-fit:contain;background:#fff;border-radius:8px;padding:5px 8px;}
   .ps-header .ps-title{color:#fff;text-align:right;}
   .ps-header .ps-title b{display:block;font-family:'Manrope',sans-serif;font-size:16px;font-weight:800;letter-spacing:.2px;}
   .ps-header .ps-title small{display:block;font-size:10px;opacity:.85;letter-spacing:.3px;text-transform:uppercase;margin-top:2px;}
@@ -247,6 +248,7 @@
   .ps-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;border-bottom:1px dotted #E7DCF7;font-size:12px;}
   .ps-row .prl{color:#5c5470;}
   .ps-row .prv{font-weight:700;text-align:right;}
+  .ps-row .pr-cnp{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8579A0;margin-left:4px;}
   .ps-badge{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;}
   .ps-badge.ok{background:var(--success-bg);color:var(--success);}
   .ps-badge.pedir{background:var(--red-bg);color:var(--red);}
@@ -300,6 +302,7 @@
   .mgmt-item-tags{display:flex;gap:5px;flex-wrap:wrap;}
   .mgmt-item-tags .tag-sm{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:20px;background:var(--blue-bg);color:var(--blue);text-transform:uppercase;letter-spacing:.2px;}
   .mgmt-item-actions{display:flex;gap:5px;}
+  .mgmt-item-qr{flex-shrink:0;display:flex;align-items:center;}
   .add-item-row{border:1.5px dashed var(--line);background:transparent;color:var(--brand-mid);font-weight:700;font-size:12.5px;padding:9px;border-radius:9px;width:100%;cursor:pointer;margin-top:8px;font-family:'Inter',sans-serif;}
   .add-item-row:hover{border-color:var(--brand-bright);background:var(--grey-bg);}
   .chip-link{display:inline-flex;align-items:center;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brand-mid);background:var(--blue-bg);padding:2px 7px;border-radius:6px;}
@@ -629,7 +632,6 @@ function fmtDatePt(iso){
   if(!y||!m||!d) return iso;
   return `${d}/${m}/${y}`;
 }
-function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
 function pad2(n){ return String(n).padStart(2,'0'); }
 
 /* ===================== CLOUD SYNC (estado partilhado da Central) ===================== */
@@ -704,67 +706,113 @@ async function fullSheetsSync(){
 /* ===================== GS1 BARCODE / QR PARSER ===================== */
 /* Decompõe códigos GS1 (DataMatrix/QR) das embalagens: AI01 (PC/GTIN,14),
    AI17 (validade YYMMDD,6), AI10 (lote, variável), AI21 (nº série, variável),
-   AI714 (CNP-PT, 7). A ordem dos elementos varia por fabricante; usa-se uma
-   pesquisa exaustiva (poucas combinações) com pontuação para escolher a
-   decomposição mais plausível. Validado com códigos reais de embalagens PT. */
+   AI714 (CNP-PT, 7). Ao contrário da 1ª versão (que assumia sempre
+   "GTIN + [17/10/21 por qualquer ordem] + 714+CNP no fim"), o CNP pode
+   aparecer em QUALQUER posição a seguir ao GTIN, não só no fim — foi isto,
+   confirmado com 9 códigos reais de caixas (2026-09), que fazia falhar a
+   maioria das leituras. Estratégia:
+     1. Localizar o bloco "714"+CNP(7 dígitos) onde quer que apareça — é um
+        elemento autocontido, por isso pode ser retirado de onde estiver,
+        colando o que ficava antes e depois (a ordem relativa dos restantes
+        elementos mantém-se).
+     2. No que sobra (só AI21 + AI17 + AI10, em qualquer ordem, sem
+        separador entre eles), localizar a âncora fixa AI17 (2 dígitos + 6
+        de validade, com mês/dia plausíveis) — muito mais fiável que
+        adivinhar 3 fronteiras variáveis de uma vez.
+     3. O texto antes/depois dessa âncora é AI21 e/ou AI10 — cada lado pode
+        conter só um dos dois, ou os dois concatenados (quando o fabricante
+        pôs ambos do mesmo lado do 714) — tenta-se as interpretações
+        plausíveis e escolhe-se a de melhor pontuação.
+
+   Desde que a câmara passou a ler DataMatrix a sério (zxing-wasm, ver
+   assets/module-chrome.js), o texto descodificado de um código GS1 vem,
+   por omissão, já em modo "HRI" — cada elemento entre parênteses, ex.
+   "(01)07612345678903(17)251231(10)ABC123(714)1234567" — sem NENHUMA
+   ambiguidade de fronteiras. `parseGS1HRI` trata este caso primeiro (muito
+   mais fiável do que adivinhar por posição/comprimento); só se o texto não
+   vier entre parênteses (colado à mão, ou QR sem essa formatação) é que se
+   cai para a heurística antiga abaixo, inalterada. */
+function parseGS1HRI(raw){
+  const out = { pc:'', validadeRaw:'', lote:'', sn:'', cnp:'' };
+  const re = /\((\d{2,4})\)([^(]+)/g;
+  let m, achou = false;
+  while((m = re.exec(raw))){
+    const ai = m[1], val = m[2].trim();
+    achou = true;
+    if(ai === '01' && /^\d{14}$/.test(val)) out.pc = val;
+    else if(ai === '17' && /^\d{6}$/.test(val)) out.validadeRaw = val;
+    else if(ai === '10') out.lote = val;
+    else if(ai === '21') out.sn = val;
+    else if(ai === '714' && /^\d{7}$/.test(val)) out.cnp = val;
+  }
+  if(!achou || !/^\d{14}$/.test(out.pc)) return null;
+  return out;
+}
 function parseGS1(raw){
-  const s = (raw||'').trim().replace(/\s+/g,'');
+  const s0 = (raw||'').trim();
+  if(/\(\d{2,4}\)/.test(s0)){
+    const viaHRI = parseGS1HRI(s0);
+    if(viaHRI) return viaHRI;
+  }
+  const s = s0.replace(/\s+/g,'');
   if(s.length < 26) return null;
   if(s.slice(0,2) !== '01') return null;
   const gtin = s.slice(2,16);
   if(!/^\d{14}$/.test(gtin)) return null;
-  if(s.slice(-10,-7) !== '714') return null;
-  const cnp = s.slice(-7);
-  if(!/^\d{7}$/.test(cnp)) return null;
-  const middle = s.slice(16, s.length-10);
-  if(middle.length < 8) return null;
 
-  const perms = [
-    ['17','10','21'],['17','21','10'],
-    ['10','17','21'],['10','21','17'],
-    ['21','17','10'],['21','10','17']
-  ];
-
-  function scoreFields(exp, lot, serial){
-    let sc = 0;
-    if(exp.length===6 && /^\d{6}$/.test(exp)){
-      const mm = parseInt(exp.slice(2,4),10);
-      const dd = parseInt(exp.slice(4,6),10);
-      if(mm>=1 && mm<=12) sc += 10;
-      if(dd>=0 && dd<=31) sc += 5;
-    }
-    if(lot.length>=1 && lot.length<=12) sc += 3;
-    if(serial.length>=8 && serial.length<=20) sc += 3;
-    sc -= Math.abs(lot.length-7)*0.1;
-    sc -= Math.abs(serial.length-14)*0.1;
-    return sc;
+  let corpo = s.slice(16);
+  let cnp = '';
+  const pos714 = corpo.indexOf('714');
+  if(pos714 !== -1 && /^\d{7}$/.test(corpo.slice(pos714+3, pos714+10))){
+    cnp = corpo.slice(pos714+3, pos714+10);
+    corpo = corpo.slice(0, pos714) + corpo.slice(pos714+10);
   }
+  if(!corpo.length) return cnp ? { pc:gtin, validadeRaw:'', lote:'', sn:'', cnp } : null;
+
+  function interpretacoesLado(txt){
+    if(!txt) return [{ sn:'', lote:'' }];
+    const marcador = txt.slice(0,2);
+    if(marcador !== '21' && marcador !== '10') return [];
+    const outro = marcador === '21' ? '10' : '21';
+    const out = [];
+    if(marcador==='21') out.push({ sn: txt.slice(2), lote: '' });
+    else out.push({ sn: '', lote: txt.slice(2) });
+    // o outro campo pode estar embutido no mesmo lado (fabricante pôs os
+    // dois campos variáveis antes/depois da validade, não um de cada lado)
+    const resto = txt.slice(2);
+    let q = resto.indexOf(outro);
+    while(q !== -1){
+      if(q > 0){
+        const v1 = resto.slice(0,q), v2 = resto.slice(q+2);
+        if(v1 && v2) out.push(marcador==='21' ? { sn:v1, lote:v2 } : { sn:v2, lote:v1 });
+      }
+      q = resto.indexOf(outro, q+1);
+    }
+    return out;
+  }
+  function pontuarCampo(v, alvo){ return v ? -Math.abs(v.length-alvo)*0.1 : 0; }
 
   let best=null, bestScore=-1;
-  for(const order of perms){
-    if(middle.slice(0,2) !== order[0]) continue;
-    const len0opts = order[0]==='17' ? [6] : range(0, middle.length-2);
-    for(const l0 of len0opts){
-      const p1 = 2+l0;
-      if(p1+2 > middle.length) continue;
-      if(middle.slice(p1,p1+2) !== order[1]) continue;
-      const val0 = middle.slice(2,p1);
-      const len1opts = order[1]==='17' ? [6] : range(0, middle.length-p1-2);
-      for(const l1 of len1opts){
-        const p2 = p1+2+l1;
-        if(p2+2 > middle.length) continue;
-        if(middle.slice(p2,p2+2) !== order[2]) continue;
-        const val1 = middle.slice(p1+2,p2);
-        const val2 = middle.slice(p2+2);
-        if(order[2]==='17' && val2.length!==6) continue;
-        if(order[2]==='17' && !/^\d{6}$/.test(val2)) continue;
-        const vals = {}; vals[order[0]]=val0; vals[order[1]]=val1; vals[order[2]]=val2;
-        if(vals['17'].length!==6 || !/^\d{6}$/.test(vals['17'])) continue;
-        const sc = scoreFields(vals['17'], vals['10'], vals['21']);
-        if(sc > bestScore){
-          bestScore = sc;
-          best = { pc:gtin, validadeRaw:vals['17'], lote:vals['10'], sn:vals['21'], cnp:cnp };
-        }
+  for(let p=0; p+8<=corpo.length; p++){
+    if(corpo.slice(p,p+2) !== '17') continue;
+    const exp = corpo.slice(p+2,p+8);
+    if(!/^\d{6}$/.test(exp)) continue;
+    const mm = parseInt(exp.slice(2,4),10), dd = parseInt(exp.slice(4,6),10);
+    if(mm<1 || mm>12 || dd<0 || dd>31) continue;
+
+    const antesOpts = interpretacoesLado(corpo.slice(0,p));
+    const depoisOpts = interpretacoesLado(corpo.slice(p+8));
+    if(!antesOpts.length || !depoisOpts.length) continue;
+
+    for(const a of antesOpts){
+      for(const d of depoisOpts){
+        if(a.sn && d.sn) continue;
+        if(a.lote && d.lote) continue;
+        const sn = a.sn || d.sn, lote = a.lote || d.lote;
+        let sc = 15 + pontuarCampo(sn, 12) + pontuarCampo(lote, 8);
+        if(sn) sc += 1;
+        if(lote) sc += 1;
+        if(sc > bestScore){ bestScore = sc; best = { pc:gtin, validadeRaw:exp, lote:lote||'', sn:sn||'', cnp }; }
       }
     }
   }
@@ -985,7 +1033,7 @@ function renderStock(){
         <b>${escapeHtml(it.nome||'—')}</b>
         <div class="smeta">
           ${it.lote?`<span>Lote: <b style="font-weight:700;">${escapeHtml(it.lote)}</b></span>`:''}
-          ${it.cnp?`<span class="scodes">CNP ${escapeHtml(it.cnp)}</span>`:''}
+          ${it.cnp?`<span class="scodes">CNP ${escapeHtml(it.cnp)}</span>${qrImgTag(it.cnp,20)}`:''}
           ${it.pc?`<span class="scodes">PC ${escapeHtml(it.pc)}</span>`:''}
           <span>Validade: <b style="font-weight:700;">${fmtDatePt(it.validade)}</b></span>
         </div>
@@ -1131,6 +1179,7 @@ function submitStockForm(){
   }
   saveJSON(STOCK_KEY, STOCK);
   syncStockRowToSheets(draftStock);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'atualizar_stock');
   closeModal('stockModalOverlay');
   renderStock();
   showToast('Produto guardado na lista de controlo.');
@@ -1188,6 +1237,7 @@ function handleScanValue(raw, containerId, mode){
     resultEl.classList.remove('show');
     return;
   }
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'scan_gs1');
   scanState[containerId] = scanState[containerId] || {};
   scanState[containerId].lastResult = data;
   resultEl.classList.add('show');
@@ -1242,15 +1292,52 @@ function handleScanValue_refreshDisplay(containerId, data){
   if(resultEl) resultEl.querySelector('.sr-row span')?.replaceChildren(document.createTextNode(data.nome));
 }
 
-/* ---- Câmara (jsQR) ---- */
-function ensureJsQR(cb, errCb){
-  if(window.jsQR){ cb(); return; }
+/* ---- Geração de QR code por linha de produto (CNP) ----
+   Nenhum outro módulo do projeto usa ainda uma biblioteca de GERAÇÃO de QR
+   (a LEITURA de códigos, agora DataMatrix+QR, é feita à parte por
+   window.ModuleChrome.ensureBarcodeLib — ver assets/module-chrome.js).
+   Usa-se qrcodejs (davidshimjs), carregada de forma lazy do cdnjs, seguindo
+   o mesmo padrão "ensureXxx" usado em toda a Central. Os QR gerados ficam
+   em cache por CNP (QR_CACHE) para não serem regenerados em cada
+   re-render das listas/relatórios. */
+function ensureQRCodeLib(cb, errCb){
+  if(window.QRCode){ cb(); return; }
   const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js';
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
   s.onload = cb;
   s.onerror = ()=>{ if(errCb) errCb(); };
   document.head.appendChild(s);
 }
+const QR_CACHE = {};
+function qrDataUrl(cnp){
+  const key = String(cnp||'').trim();
+  if(!key) return '';
+  if(QR_CACHE[key]) return QR_CACHE[key];
+  if(!window.QRCode) return ''; // biblioteca ainda não carregada — ver ensureQRCodeLib()
+  try{
+    const tmp = document.createElement('div');
+    new window.QRCode(tmp, { text:key, width:72, height:72, correctLevel: window.QRCode.CorrectLevel.M });
+    const canvas = tmp.querySelector('canvas');
+    const url = canvas ? canvas.toDataURL('image/png') : '';
+    if(url) QR_CACHE[key] = url;
+    return url;
+  }catch(e){ return ''; }
+}
+function qrImgTag(cnp, sizePx){
+  const url = qrDataUrl(cnp);
+  if(!url) return '';
+  const s = sizePx || 26;
+  return `<img class="cnp-qr" src="${url}" width="${s}" height="${s}" alt="QR CNP ${escapeHtml(String(cnp))}">`;
+}
+/* Pré-carrega a biblioteca assim que o módulo arranca, para os códigos QR
+   aparecerem sem o utilizador ter de abrir a câmara primeiro; ao terminar,
+   volta a desenhar a vista atual (e o editor de relatório, se aberto) para
+   preencher os QR que tinham ficado em branco durante o carregamento. */
+ensureQRCodeLib(function(){
+  renderAll();
+  const overlay = document.getElementById('reportModalOverlay');
+  if(overlay && overlay.classList.contains('open')) renderReportEditor();
+});
 function toggleCamera(containerId, mode){
   const wrap = document.getElementById('video_'+containerId);
   const st = scanState[containerId] = scanState[containerId] || {};
@@ -1258,43 +1345,51 @@ function toggleCamera(containerId, mode){
     stopCamera(containerId);
     return;
   }
-  ensureJsQR(()=>{
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-      st.stream = stream;
-      const video = document.getElementById('v_'+containerId);
-      video.srcObject = stream;
-      video.play();
-      wrap.classList.add('show');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      function tick(){
-        if(!st.stream) return;
-        if(video.readyState === video.HAVE_ENOUGH_DATA){
-          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // A biblioteca (zxing-wasm) carrega em paralelo com a câmara, não antes —
+  // a pré-visualização aparece de imediato; até a biblioteca ficar pronta,
+  // decodeBarcodeFrame() simplesmente não encontra nada (ver module-chrome.js).
+  window.ModuleChrome.ensureBarcodeLib(()=>{}, ()=> showToast('Não foi possível carregar o leitor de DataMatrix/QR (sem ligação à internet?). Em alguns navegadores a câmara pode continuar a funcionar com deteção nativa.'));
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
+    st.stream = stream;
+    const video = document.getElementById('v_'+containerId);
+    video.srcObject = stream;
+    video.play();
+    wrap.classList.add('show');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    function tick(){
+      if(!st.stream) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA && !st.aDescodificar){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const agora = performance.now();
+        if(agora - (st.ultimaTentativa||0) > 180){
+          st.aDescodificar = true;
+          st.ultimaTentativa = agora;
           const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-          const code = window.jsQR(img.data, img.width, img.height);
-          if(code && code.data){
-            document.getElementById('hw_'+containerId).value = code.data;
-            handleScanValue(code.data, containerId, mode);
-            stopCamera(containerId);
-            return;
-          }
+          window.ModuleChrome.decodeBarcodeFrame(canvas, img).then(texto=>{
+            st.aDescodificar = false;
+            if(texto && st.stream){
+              document.getElementById('hw_'+containerId).value = texto;
+              handleScanValue(texto, containerId, mode);
+              stopCamera(containerId);
+            }
+          }).catch(()=>{ st.aDescodificar = false; });
         }
-        st.raf = requestAnimationFrame(tick);
       }
       st.raf = requestAnimationFrame(tick);
-    }).catch(()=>{
-      showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
-    });
-  }, ()=> showToast('Não foi possível carregar o leitor de câmara (sem ligação à internet?).'));
+    }
+    st.raf = requestAnimationFrame(tick);
+  }).catch(()=>{
+    showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
+  });
 }
 function stopCamera(containerId){
   const st = scanState[containerId];
   if(!st) return;
   if(st.raf) cancelAnimationFrame(st.raf);
   if(st.stream) st.stream.getTracks().forEach(t=>t.stop());
-  st.stream = null; st.raf = null;
+  st.stream = null; st.raf = null; st.aDescodificar = false; st.ultimaTentativa = 0;
   const wrap = document.getElementById('video_'+containerId);
   if(wrap) wrap.classList.remove('show');
 }
@@ -1603,6 +1698,7 @@ function submitItemModal(){
     if(est){
       Object.assign(est, { nome: draftItem.nome.trim(), sub: draftItem.sub||'', cnp: draftItem.cnp||'', qv: !draftItem.dateOnly && !!draftItem.qv, dateOnly: !!draftItem.dateOnly, options: draftItem.dateOnly?[]:options.slice() });
     }
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'checklist');
     showToast('Item atualizado.');
   } else {
     const item = {
@@ -1616,6 +1712,7 @@ function submitItemModal(){
       const sec = draftReport.estrutura.find(s=>s.id===item.sectionId);
       if(sec) sec.items.push({id:item.id, nome:item.nome, sub:item.sub, options:item.options.slice(), qv:item.qv, dateOnly:item.dateOnly, qr:item.qr, cnp:item.cnp});
     }
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'checklist');
     showToast('Item adicionado à base de dados de itens do gabinete.');
   }
   closeModal('itemModalOverlay');
@@ -1723,6 +1820,7 @@ function renderItensView(){
             <span>${escapeHtml(it.sub||'')}</span>
             <div class="mgmt-item-tags">${tags.map(t=>`<span class="tag-sm">${escapeHtml(t)}</span>`).join('')}${linkedStock?`<span class="tag-sm" style="background:var(--success-bg);color:var(--success);">${linkedStock} na Lista de Controlo</span>`:''}${it.ativo===false?`<span class="tag-sm" style="background:var(--red-bg);color:var(--red);">Removido</span>`:''}</div>
           </div>
+          ${it.cnp?`<div class="mgmt-item-qr">${qrImgTag(it.cnp,24)}</div>`:''}
           <div class="mgmt-item-actions">
             <button class="icon-btn" title="Mover para cima" onclick="moveItemUp('${it.id}')">↑</button>
             <button class="icon-btn" title="Mover para baixo" onclick="moveItemDown('${it.id}')">↓</button>
@@ -1776,7 +1874,7 @@ function renderReportEditor(){
       const stockMatch = (item.cnp || item.nome) ? pullFromStockSummary(item.cnp, item.nome) : null;
       html += `<div class="checklist-item">
         <div class="ci-head">
-          <div><div class="ci-name">${escapeHtml(item.nome)}${item.qr?` <span class="ci-qr">QR ${escapeHtml(item.qr)}</span>`:''}${item.cnp?` <span class="ci-qr">CNP ${escapeHtml(item.cnp)}</span>`:''}</div>${item.sub?`<div class="ci-sub">${escapeHtml(item.sub)}</div>`:''}</div>
+          <div><div class="ci-name">${escapeHtml(item.nome)}${item.qr?` <span class="ci-qr">QR ${escapeHtml(item.qr)}</span>`:''}${item.cnp?` <span class="ci-qr">CNP ${escapeHtml(item.cnp)}</span>${qrImgTag(item.cnp,20)}`:''}</div>${item.sub?`<div class="ci-sub">${escapeHtml(item.sub)}</div>`:''}</div>
           <button class="icon-btn danger" title="Remover item da base de dados" onclick="removeItemFromReport('${sec.id}','${item.id}')">🗑</button>
         </div>`;
       if(item.dateOnly){
@@ -1809,6 +1907,7 @@ function addItemToReportSection(sectionId){ openAddItemModal(sectionId); }
 
 function saveReport(){
   if(!draftReport.data){ showToast('Indique a data do relatório.'); return; }
+  const eraNovo = !draftReport.id;
   if(draftReport.id){
     const idx = REPORTS.findIndex(x=>x.id===draftReport.id);
     if(idx>=0) REPORTS[idx] = draftReport;
@@ -1818,9 +1917,11 @@ function saveReport(){
   }
   saveJSON(REPORTS_KEY, REPORTS);
   syncReportToSheets(draftReport);
+  if(eraNovo && window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'criar_relatorio');
   showToast('Relatório guardado.');
   renderRelatoriosList();
   updateStats();
+  enviarRelatorioPdfPorEmail(draftReport);
 }
 function deleteReport(id){
   if(!confirm('Eliminar este relatório?')) return;
@@ -1854,8 +1955,11 @@ function renderRelatoriosList(){
 }
 
 /* ===================== IMPRESSÃO DO RELATÓRIO ===================== */
-function printReport(){
-  const r = draftReport;
+/* Gera o HTML do .print-sheet a partir de um relatório — usado tanto pela
+   impressão no navegador (printReport) como pela geração do PDF para envio
+   por email (gerarPdfRelatorio), para as duas vias produzirem exatamente o
+   mesmo documento. */
+function buildPrintSheetHtml(r){
   let pedidosTotal = 0;
   const estrutura = r.estrutura || [];
   const sectionsHtml = estrutura.map(sec=>{
@@ -1865,16 +1969,17 @@ function printReport(){
       let badgeCls = 'outra';
       if(resp.status && resp.status!=='__outra__' && /pedir/i.test(resp.status)) { badgeCls='pedir'; pedidosTotal++; }
       else if(resp.status && /conforme|ok|verificado|unidade|livro/i.test(resp.status)) badgeCls='ok';
+      const cnpBit = item.cnp ? ` <span class="pr-cnp">CNP ${escapeHtml(item.cnp)}</span>${qrImgTag(item.cnp,26)}` : '';
       if(item.dateOnly){
-        return `<div class="ps-row"><span class="prl">${escapeHtml(item.nome)}</span><span class="prv">${resp.validade? fmtDatePt(resp.validade): '—'}</span></div>`;
+        return `<div class="ps-row"><span class="prl">${escapeHtml(item.nome)}${cnpBit}</span><span class="prv">${resp.validade? fmtDatePt(resp.validade): '—'}</span></div>`;
       }
       let extra = item.qv ? ` <span style="color:#8579A0;">(${escapeHtml(resp.qty||'—')}${resp.validade?', val. '+escapeHtml(resp.validade):''})</span>` : '';
-      return `<div class="ps-row"><span class="prl">${escapeHtml(item.nome)}</span><span class="prv"><span class="ps-badge ${badgeCls}">${escapeHtml(statusLabel)}</span>${extra}</span></div>`;
+      return `<div class="ps-row"><span class="prl">${escapeHtml(item.nome)}${cnpBit}</span><span class="prv"><span class="ps-badge ${badgeCls}">${escapeHtml(statusLabel)}</span>${extra}</span></div>`;
     }).join('');
     return `<h4>${escapeHtml(sec.titulo)}</h4>${rows}`;
   }).join('');
 
-  const html = `
+  return `
     <div class="print-sheet" id="printSheetInner">
       <div class="ps-header">
         <img src="${FARMACIA_LOGO_SRC}" alt="logo">
@@ -1898,11 +2003,92 @@ function printReport(){
       <div class="ps-foot">Gerado pela aplicação de Gestão de Gabinete · ${escapeHtml(nomeFarmaciaAtual())} · Documento interno</div>
     </div>
   `;
+}
+function printReport(){
   const holder = document.getElementById('printHolder');
-  holder.innerHTML = html;
+  holder.innerHTML = buildPrintSheetHtml(draftReport);
   holder.classList.add('print-active');
   window.addEventListener('afterprint', function cleanup(){ holder.classList.remove('print-active'); window.removeEventListener('afterprint', cleanup); });
   setTimeout(()=> window.print(), 80);
+}
+
+/* ---- PDF do relatório + envio para email via Google Sheets ----
+   Nenhum outro módulo deste projeto converte um template HTML em PDF via
+   html2canvas — só o stocks.html já usa jsPDF (tabela, com autotable), aqui
+   reutiliza-se a mesma biblioteca/versão (jsPDF 2.5.1 do cdnjs) para
+   consistência, complementada com html2canvas (também do cdnjs, mesmo
+   padrão de carregamento lazy "ensureXxx" do ensureQRCodeLib acima) para
+   capturar fielmente o .print-sheet (incluindo o cabeçalho, logótipo e os
+   CNP/QR por produto) tal como é impresso. */
+function ensureHtml2Canvas(cb, errCb){
+  if(window.html2canvas){ cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  s.onload = cb;
+  s.onerror = ()=>{ if(errCb) errCb(); };
+  document.head.appendChild(s);
+}
+function ensureJsPDF(cb, errCb){
+  if(window.jspdf && window.jspdf.jsPDF){ cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+  s.onload = cb;
+  s.onerror = ()=>{ if(errCb) errCb(); };
+  document.head.appendChild(s);
+}
+function gerarPdfRelatorio(r){
+  return new Promise((resolve, reject)=>{
+    ensureQRCodeLib(()=>{
+      ensureHtml2Canvas(()=>{
+        ensureJsPDF(()=>{
+          const holder = document.createElement('div');
+          holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:760px;background:#fff;';
+          holder.innerHTML = buildPrintSheetHtml(r);
+          document.body.appendChild(holder);
+          const target = holder.querySelector('.print-sheet') || holder;
+          window.html2canvas(target, { scale:2, backgroundColor:'#ffffff', useCORS:true, allowTaint:true }).then(canvas=>{
+            document.body.removeChild(holder);
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgW = pageWidth;
+            const imgH = canvas.height * (imgW / canvas.width);
+            let heightLeft = imgH;
+            let y = 0;
+            pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH);
+            heightLeft -= pageHeight;
+            while(heightLeft > 0){
+              y = heightLeft - imgH;
+              pdf.addPage();
+              pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH);
+              heightLeft -= pageHeight;
+            }
+            // .output('datauristring') devolve "data:application/pdf;filename=...;base64,<b64>" —
+            // extrai-se só o base64 puro, já que pushToSheets/report_pdf envia o campo pdfBase64
+            // sem prefixo de data-URI (mais simples de decodificar no Code.gs).
+            const dataUri = pdf.output('datauristring');
+            resolve(dataUri.split(',').pop());
+          }).catch(err=>{
+            if(holder.parentNode) document.body.removeChild(holder);
+            reject(err);
+          });
+        }, reject);
+      }, reject);
+    }, reject);
+  });
+}
+function enviarRelatorioPdfPorEmail(report){
+  if(!CONFIG.sheetsUrl) return; // sem Google Apps Script configurada, não há para onde enviar
+  gerarPdfRelatorio(report).then(pdfBase64=>{
+    return pushToSheets('report_pdf', { id: report.id, data: report.data, farmaceutico: report.farmaceutico, pdfBase64, destinatario: CONFIG.alertEmail || '' });
+  }).then(()=>{
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('gabinete', 'relatorio_pdf_email');
+    showToast('Relatório enviado em PDF para envio por email.');
+  }).catch(()=>{
+    showToast('Não foi possível gerar/enviar o PDF do relatório por email.');
+  });
 }
 
 /* ===================== CONFIGURAÇÕES ===================== */
@@ -2047,6 +2233,7 @@ window.openEditStockModal = openEditStockModal;
 window.openNewReport = openNewReport;
 window.openReport = openReport;
 window.openScanModal = openScanModal;
+window.parseGS1 = parseGS1; // exposto para depuração/testes (não é chamado de nenhum onclick inline)
 window.printReport = printReport;
 window.pullItemFromStock = pullItemFromStock;
 window.removeChecklistItem = removeChecklistItem;

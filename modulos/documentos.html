@@ -197,7 +197,7 @@
   .preview-reset-btn:hover{background:var(--brand-bright);color:#fff;border-color:var(--brand-bright);}
   .print-sheet{background:#fff;width:100%;max-width:700px;box-shadow:0 4px 18px rgba(0,0,0,0.10);border-radius:4px;overflow:visible;font-family:'Inter',sans-serif;color:#241a12;}
   .ps-header{background:linear-gradient(120deg,#163a2c 0%, #1f543e 55%, #2b7a4b 100%);padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .ps-header img{height:44px;background:#fff;border-radius:8px;padding:5px 8px;}
+  .ps-header img{height:176px;object-fit:contain;background:#fff;border-radius:8px;padding:5px 8px;}
   .ps-header .ps-title{color:#fff;text-align:right;}
   .ps-header .ps-title b{display:block;font-family:'Manrope',sans-serif;font-size:16px;font-weight:800;letter-spacing:.2px;}
   .ps-header .ps-title small{display:block;font-size:10px;opacity:.85;letter-spacing:.3px;text-transform:uppercase;margin-top:2px;}
@@ -1913,7 +1913,10 @@ function resetDeclBodyToAuto(){
 }
 
 /* ---------- Export ---------- */
-function exportDeclPdf(){ printModule('printSheetArea'); }
+function exportDeclPdf(){
+  printModule('printSheetArea');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_declaracao');
+}
 function exportDeclWord(){
   const content = document.getElementById('printSheetArea').innerHTML;
   const pre = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -1921,7 +1924,7 @@ function exportDeclWord(){
     <style>
       body{font-family:Calibri,Arial,sans-serif;color:#241a12;}
       .ps-header{background:#1f543e;padding:16px 20px;color:#fff;}
-      .ps-header img{height:40px;background:#fff;padding:4px;}
+      .ps-header img{height:160px;object-fit:contain;background:#fff;padding:4px;}
       .ps-body{padding:16px 20px;font-size:13px;line-height:1.7;}
       .ps-body h4{color:#1f543e;text-transform:uppercase;font-size:12px;border-bottom:1px solid #cfe8d6;padding-bottom:4px;}
       .ps-sign{margin-top:20px;}
@@ -1940,6 +1943,7 @@ function exportDeclWord(){
   a.click();
   document.body.removeChild(a);
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_declaracao');
   showToast('Documento Word exportado.');
 }
 
@@ -2262,10 +2266,12 @@ function printBolachaSheet(){
   });
   holder.appendChild(grid);
   printModule('bolachaQueuePrintHolder', '@page{margin:10mm;}');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_bolacha');
 }
 function printSingleBolacha(){
   cloneCanvasForPrint(document.getElementById('bolachaCanvas'), 'bolachaSinglePrintHolder');
   printModule('bolachaSinglePrintHolder', '@page{margin:0;}');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_bolacha');
 }
 function exportBolachaPng(){
   const s = bolachaState;
@@ -2289,6 +2295,7 @@ function exportBolachaPng(){
       a.href = url; a.download = 'bolacha.png';
       a.click();
       setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_bolacha');
     });
   };
   img.onerror = ()=> showToast('Não foi possível exportar PNG neste browser — utilize Imprimir / PDF.');
@@ -2549,6 +2556,7 @@ function printEtiquetas(){
   document.body.appendChild(wrap);
   printModule('etiquetaPrintArea', pageCss);
   setTimeout(()=>{ wrap.remove(); }, 1200);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_etiqueta');
 }
 
 /* ---------- Lista de etiquetas de medicamentos a imprimir ---------- */
@@ -2693,6 +2701,7 @@ function printMedList(){
   document.body.appendChild(wrap);
   printModule('etiquetaPrintArea', pageCss);
   setTimeout(()=>{ wrap.remove(); }, 1200);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_etiqueta');
 }
 
 /* ======================================================================
@@ -2772,6 +2781,7 @@ function createLista(){
   currentListaId = id;
   renderListaSelect();
   renderListasContent();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_lista_inscricao');
   showToast('Lista criada.');
 }
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -3133,6 +3143,7 @@ function printLombada(){
   const s = lombadaState;
   holder.innerHTML = `<div style="width:${s.larguraCm}cm;height:${s.alturaCm}cm;${lombadaBgStyle()}position:relative;overflow:hidden;">${lombadaCanvasInnerHtml(false)}</div>`;
   printModule('lombadaPrintHolder', '@page{margin:0;}');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'gerar_lombada');
 }
 
 /* ---------- Guardar / carregar lombadas ---------- */
@@ -3498,6 +3509,7 @@ async function saveBiblioDoc(){
   saveJSON(BIBLIO_DOCS_KEY, BIBLIO_DOCS);
   closeBiblioDocModal();
   renderBiblioBookDetail();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('documentos', 'arquivar_documento');
   showToast('Documento guardado.');
 }
 function deleteBiblioDoc(id){

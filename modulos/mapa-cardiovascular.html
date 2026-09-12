@@ -216,7 +216,7 @@ body {
 }
 
 .consent-body .logo-center img {
-  height: 60px;
+  height: 240px;
   object-fit: contain;
 }
 
@@ -1016,7 +1016,7 @@ body {
 
 
 <a class="module-back" href="/" onclick="event.preventDefault(); voltarACentral();">← Voltar à Central</a>
-<button class="print-btn" onclick="window.print()">🖨️ Imprimir</button>
+<button class="print-btn" onclick="gerarMapa()">🖨️ Imprimir</button>
 
 <script src="../assets/module-chrome.js"></script>
 <script type="module">
@@ -1027,6 +1027,12 @@ function voltarACentral(){
   window.top.location.href = "/";
 }
 window.voltarACentral = voltarACentral;
+
+function gerarMapa(){
+  window.print();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('mapa-cardiovascular', 'gerar_mapa');
+}
+window.gerarMapa = gerarMapa;
 
 aoExpirarSessao(() => {
   limparSessao();

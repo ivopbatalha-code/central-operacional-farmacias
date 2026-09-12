@@ -685,16 +685,19 @@ function getFiltered(){
   let list = pedidos.slice();
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
 
-  if(activeFilter !== 'todos'){
-    list = list.filter(p=>p.status===activeFilter);
-  }else if(!q){
-    // Na vista "Todos" sem pesquisa, Entregue e Cancelado ficam apenas nas suas próprias abas
-    list = list.filter(p=>!HIDDEN_FROM_ALL.includes(p.status));
+  if(q){
+    // a pesquisa é sempre global: ignora a aba de estado atualmente selecionada,
+    // para que um pedido "entregue" ou "cancelado" continue a ser encontrável
+    list = list.filter(p => [p.nome,p.nif,p.receita,p.telefone,p.email,p.medicamento,p.sifarma].join(' ').toLowerCase().includes(q));
+  }else{
+    if(activeFilter !== 'todos'){
+      list = list.filter(p=>p.status===activeFilter);
+    }else{
+      // Na vista "Todos" sem pesquisa, Entregue e Cancelado ficam apenas nas suas próprias abas
+      list = list.filter(p=>!HIDDEN_FROM_ALL.includes(p.status));
+    }
   }
 
-  if(q){
-    list = list.filter(p => [p.nome,p.nif,p.receita,p.telefone,p.email,p.medicamento,p.sifarma].join(' ').toLowerCase().includes(q));
-  }
   if(sortMode==='recentes') list.sort((a,b)=> new Date(b.criado)-new Date(a.criado));
   if(sortMode==='antigos') list.sort((a,b)=> new Date(a.criado)-new Date(b.criado));
   if(sortMode==='nome') list.sort((a,b)=> a.nome.localeCompare(b.nome));
@@ -989,8 +992,10 @@ async function saveCurrent(){
     status: currentStatus,
   };
   let isNew = false;
+  let statusAnterior = null;
   if(editingId){
     const idx = pedidos.findIndex(x=>x.id===editingId);
+    statusAnterior = pedidos[idx].status;
     pedidos[idx] = {...pedidos[idx], ...payload};
   }else{
     isNew = true;
@@ -1000,6 +1005,10 @@ async function saveCurrent(){
   closeModal();
   render();
   await persistirPedidos();
+  if(window.ModuleChrome){
+    if(isNew) window.ModuleChrome.registarUso('manipulados', 'criar_pedido');
+    if(payload.status === 'entregue' && statusAnterior !== 'entregue') window.ModuleChrome.registarUso('manipulados', 'marcar_entregue');
+  }
   showToast(isNew ? 'Novo pedido criado.' : 'Pedido atualizado.');
 }
 async function deleteCurrent(){
@@ -1196,6 +1205,7 @@ function confirmSendEmail(){
   // sem precisar de nenhuma conta/serviço configurado à parte.
   const mailto = `mailto:${encodeURIComponent(dest)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}`;
   window.open(mailto, '_blank');
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('manipulados', 'enviar_orcamento');
   closeEmailPreview();
 }
 

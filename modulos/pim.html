@@ -144,14 +144,20 @@
   /* ---------- MODAL / OVERLAY ---------- */
   .overlay{position:fixed;inset:0;background:rgba(58,46,16,0.5);backdrop-filter:blur(2px);display:none;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;z-index:50;}
   .overlay.open{display:flex;}
-  .modal{background:var(--card);border-radius:18px;width:100%;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:pop .15s ease-out;}
-  .modal.modal-wide{max-width:1180px; display:flex; flex-direction:column; max-height:92vh;}
+  /* Todos os modais têm altura máxima e são flex-column: cabeçalho e rodapé
+     (ambos flex-shrink:0) ficam sempre visíveis, e é o .modal-body que
+     ganha scroll interno quando o conteúdo é maior do que cabe — assim o
+     botão de ação do rodapé (ex.: "Guardar") nunca fica empurrado para
+     fora da vista, mesmo em ecrãs pequenos ou com conteúdo longo
+     (scanner, resultado da digitalização, listas compridas, etc.). */
+  .modal{background:var(--card);border-radius:18px;width:100%;max-width:560px;max-height:92vh;box-shadow:0 20px 60px rgba(0,0,0,0.25);animation:pop .15s ease-out;display:flex;flex-direction:column;}
+  .modal.modal-wide{max-width:1180px;}
   .modal.modal-med{max-width:760px;}
   @keyframes pop{from{transform:translateY(8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
   .modal-head{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;flex-shrink:0;}
   .modal-head h2{margin:0;font-family:'Manrope',sans-serif;font-size:16.5px;color:var(--brand-deep);font-weight:800;}
   .close-x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--ink-soft);line-height:1;padding:4px;}
-  .modal-body{padding:20px 24px;overflow-y:auto;}
+  .modal-body{padding:20px 24px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;}
   .modal-foot{padding:14px 24px 20px;display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);flex-wrap:wrap;flex-shrink:0;}
   .foot-right{display:flex;gap:9px;flex-wrap:wrap;}
 
@@ -279,7 +285,7 @@
   /* ---------- Rótulo (label) ---------- */
   .rotulo-sheet{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;}
   .rotulo-head{background:linear-gradient(120deg,#163a2c 0%, #1f543e 55%, #2b7a4b 100%);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .rotulo-head img{height:38px;background:#fff;border-radius:8px;padding:4px 7px;}
+  .rotulo-head img{height:152px;object-fit:contain;background:#fff;border-radius:8px;padding:4px 7px;}
   .rotulo-head .rh-title{color:#fff;text-align:right;}
   .rotulo-head .rh-title b{display:block;font-family:'Manrope',sans-serif;font-size:14px;font-weight:800;}
   .rotulo-head .rh-title small{display:block;font-size:9.5px;opacity:.9;text-transform:uppercase;letter-spacing:.3px;margin-top:2px;}
@@ -302,7 +308,7 @@
   /* ---------- Print sheet (general) ---------- */
   .print-sheet{background:#fff;width:100%;max-width:800px;box-shadow:0 4px 18px rgba(0,0,0,0.10);border-radius:4px;overflow:visible;font-family:'Inter',sans-serif;color:#241a35;margin:0 auto;}
   .ps-header{background:linear-gradient(120deg,#163a2c 0%, #1f543e 55%, #2b7a4b 100%);padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-  .ps-header img{height:44px;background:#fff;border-radius:8px;padding:5px 8px;}
+  .ps-header img{height:176px;object-fit:contain;background:#fff;border-radius:8px;padding:5px 8px;}
   .ps-header .ps-title{color:#fff;text-align:right;}
   .ps-header .ps-title b{display:block;font-family:'Manrope',sans-serif;font-size:16px;font-weight:800;letter-spacing:.2px;}
   .ps-header .ps-title small{display:block;font-size:10px;opacity:.85;letter-spacing:.3px;text-transform:uppercase;margin-top:2px;}
@@ -757,7 +763,6 @@ function fmtDateTimePt(iso){
   if(isNaN(d.getTime())) return fmtDatePt(iso);
   return fmtDatePt(iso) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
 }
-function range(a,b){ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; }
 function pad2(n){ return String(n).padStart(2,'0'); }
 function initials(nome){
   const parts = (nome||'').trim().split(/\s+/).filter(Boolean);
@@ -780,11 +785,30 @@ function parsePosoQty(v){
 function loadJSON(key, fallback){
   try{ const v = JSON.parse(localStorage.getItem(key)); return v==null ? fallback : v; }catch(e){ return fallback; }
 }
+/* gravarPim() faz "ler estado atual do servidor -> mesclar a própria chave ->
+   PUT do estado inteiro". Se duas chamadas correrem em paralelo (ex.: uma
+   ação que grava MEDICAMENTOS_KEY logo seguida de STOCK_KEY, como acontece
+   ao criar um medicamento novo a partir do scanner), a 2ª pode ler o estado
+   do servidor ANTES do PUT da 1ª lá chegar — e o seu próprio PUT, escrito
+   por cima, apaga silenciosamente a alteração da 1ª (ex.: o medicamento
+   novo desaparece do servidor, mas a embalagem de stock que o referencia
+   fica — e passa a mostrar "(removido)" no histórico após um reload). Isto
+   é um "lost update" clássico de leitura-modificação-escrita concorrente.
+   Fila `gravarQueue` serializa TODAS as chamadas a gravarPim/hydrateFromCloud:
+   cada uma só começa (e por isso só lê o estado do servidor) depois do PUT
+   da anterior já ter respondido, eliminando a corrida sem ser preciso
+   tocar em cada um dos pontos de chamada. */
+let gravarQueue = Promise.resolve();
+function enqueueSync(task){
+  const run = gravarQueue.then(task, task);
+  gravarQueue = run.then(()=>{}, ()=>{}); // a fila continua mesmo que esta tarefa falhe
+  return run;
+}
 function saveJSON(key, val){
   localStorage.setItem(key, JSON.stringify(val));
   if(!CLOUD_SYNC_KEYS.has(key)) return;
   setSyncStatus('syncing');
-  gravarPim(key, val).then(()=> setSyncStatus('ok')).catch(()=> setSyncStatus('offline'));
+  enqueueSync(()=> gravarPim(key, val)).then(()=> setSyncStatus('ok')).catch(()=> setSyncStatus('offline'));
 }
 const CLOUD_SYNC_KEYS = new Set([UTENTES_KEY, MEDICAMENTOS_KEY, STOCK_KEY, EVENTOS_KEY, ROTULOS_KEY, RECEITAS_KEY, CUSTOM_MEDS_KEY, CONFIG_KEY]);
 
@@ -801,25 +825,28 @@ function setSyncStatus(state){
   const [icon, label, color] = map[state] || map.offline;
   el.innerHTML = `<span style="color:${color}">${icon} ${label}</span>`;
 }
-async function hydrateFromCloud(){
+function hydrateFromCloud(){
   setSyncStatus('syncing');
-  try{
-    const estado = await fetchEstado();
-    const pim = estado.pim || {};
-    let changed = false;
-    if(pim[UTENTES_KEY]){ UTENTES = pim[UTENTES_KEY]; localStorage.setItem(UTENTES_KEY, JSON.stringify(UTENTES)); changed = true; }
-    if(pim[MEDICAMENTOS_KEY]){ MEDICAMENTOS = pim[MEDICAMENTOS_KEY]; localStorage.setItem(MEDICAMENTOS_KEY, JSON.stringify(MEDICAMENTOS)); changed = true; }
-    if(pim[STOCK_KEY]){ STOCK = pim[STOCK_KEY]; localStorage.setItem(STOCK_KEY, JSON.stringify(STOCK)); changed = true; }
-    if(pim[EVENTOS_KEY]){ EVENTOS = pim[EVENTOS_KEY]; localStorage.setItem(EVENTOS_KEY, JSON.stringify(EVENTOS)); changed = true; }
-    if(pim[ROTULOS_KEY]){ ROTULOS = pim[ROTULOS_KEY]; localStorage.setItem(ROTULOS_KEY, JSON.stringify(ROTULOS)); changed = true; }
-    if(pim[RECEITAS_KEY]){ RECEITAS = pim[RECEITAS_KEY]; localStorage.setItem(RECEITAS_KEY, JSON.stringify(RECEITAS)); changed = true; }
-    if(pim[CUSTOM_MEDS_KEY]){ customMeds = pim[CUSTOM_MEDS_KEY]; localStorage.setItem(CUSTOM_MEDS_KEY, JSON.stringify(customMeds)); changed = true; }
-    if(pim[CONFIG_KEY]){ CONFIG = Object.assign({}, CONFIG, pim[CONFIG_KEY]); localStorage.setItem(CONFIG_KEY, JSON.stringify(CONFIG)); changed = true; }
-    setSyncStatus('ok');
-    if(changed){ renderAll(); }
-  }catch(e){
-    setSyncStatus('offline');
-  }
+  // Também passa pela fila de gravarQueue (ver saveJSON acima): sem isto, um
+  // "Sincronizar agora" manual (ou o carregamento inicial) podia ler o
+  // servidor a meio de um PUT ainda em curso de outra gravação e substituir
+  // localmente uma alteração acabada de fazer por dados desatualizados.
+  return enqueueSync(doHydrateFromCloud).catch(()=> setSyncStatus('offline'));
+}
+async function doHydrateFromCloud(){
+  const estado = await fetchEstado();
+  const pim = estado.pim || {};
+  let changed = false;
+  if(pim[UTENTES_KEY]){ UTENTES = pim[UTENTES_KEY]; localStorage.setItem(UTENTES_KEY, JSON.stringify(UTENTES)); changed = true; }
+  if(pim[MEDICAMENTOS_KEY]){ MEDICAMENTOS = pim[MEDICAMENTOS_KEY]; localStorage.setItem(MEDICAMENTOS_KEY, JSON.stringify(MEDICAMENTOS)); changed = true; }
+  if(pim[STOCK_KEY]){ STOCK = pim[STOCK_KEY]; localStorage.setItem(STOCK_KEY, JSON.stringify(STOCK)); changed = true; }
+  if(pim[EVENTOS_KEY]){ EVENTOS = pim[EVENTOS_KEY]; localStorage.setItem(EVENTOS_KEY, JSON.stringify(EVENTOS)); changed = true; }
+  if(pim[ROTULOS_KEY]){ ROTULOS = pim[ROTULOS_KEY]; localStorage.setItem(ROTULOS_KEY, JSON.stringify(ROTULOS)); changed = true; }
+  if(pim[RECEITAS_KEY]){ RECEITAS = pim[RECEITAS_KEY]; localStorage.setItem(RECEITAS_KEY, JSON.stringify(RECEITAS)); changed = true; }
+  if(pim[CUSTOM_MEDS_KEY]){ customMeds = pim[CUSTOM_MEDS_KEY]; localStorage.setItem(CUSTOM_MEDS_KEY, JSON.stringify(customMeds)); changed = true; }
+  if(pim[CONFIG_KEY]){ CONFIG = Object.assign({}, CONFIG, pim[CONFIG_KEY]); localStorage.setItem(CONFIG_KEY, JSON.stringify(CONFIG)); changed = true; }
+  setSyncStatus('ok');
+  if(changed){ renderAll(); }
 }
 
 /* ===================== GOOGLE SHEETS PUSH (Apps Script Web App) — alertas por email ===================== */
@@ -848,67 +875,113 @@ function pushAlertsToSheets(alerts){
 /* ===================== GS1 BARCODE / QR PARSER ===================== */
 /* Decompõe códigos GS1 (DataMatrix/QR) das embalagens: AI01 (PC/GTIN,14),
    AI17 (validade YYMMDD,6), AI10 (lote, variável), AI21 (nº série, variável),
-   AI714 (CNP-PT, 7). A ordem dos elementos varia por fabricante; usa-se uma
-   pesquisa exaustiva (poucas combinações) com pontuação para escolher a
-   decomposição mais plausível. */
+   AI714 (CNP-PT, 7). Ao contrário da 1ª versão (que assumia sempre
+   "GTIN + [17/10/21 por qualquer ordem] + 714+CNP no fim"), o CNP pode
+   aparecer em QUALQUER posição a seguir ao GTIN, não só no fim — foi isto,
+   confirmado com 9 códigos reais de caixas (2026-09), que fazia falhar a
+   maioria das leituras. Estratégia:
+     1. Localizar o bloco "714"+CNP(7 dígitos) onde quer que apareça — é um
+        elemento autocontido, por isso pode ser retirado de onde estiver,
+        colando o que ficava antes e depois (a ordem relativa dos restantes
+        elementos mantém-se).
+     2. No que sobra (só AI21 + AI17 + AI10, em qualquer ordem, sem
+        separador entre eles), localizar a âncora fixa AI17 (2 dígitos + 6
+        de validade, com mês/dia plausíveis) — muito mais fiável que
+        adivinhar 3 fronteiras variáveis de uma vez.
+     3. O texto antes/depois dessa âncora é AI21 e/ou AI10 — cada lado pode
+        conter só um dos dois, ou os dois concatenados (quando o fabricante
+        pôs ambos do mesmo lado do 714) — tenta-se as interpretações
+        plausíveis e escolhe-se a de melhor pontuação.
+
+   Desde que a câmara passou a ler DataMatrix a sério (zxing-wasm, ver
+   assets/module-chrome.js), o texto descodificado de um código GS1 vem,
+   por omissão, já em modo "HRI" — cada elemento entre parênteses, ex.
+   "(01)07612345678903(17)251231(10)ABC123(714)1234567" — sem NENHUMA
+   ambiguidade de fronteiras. `parseGS1HRI` trata este caso primeiro (muito
+   mais fiável do que adivinhar por posição/comprimento); só se o texto não
+   vier entre parênteses (colado à mão, ou QR sem essa formatação) é que se
+   cai para a heurística antiga abaixo, inalterada. */
+function parseGS1HRI(raw){
+  const out = { pc:'', validadeRaw:'', lote:'', sn:'', cnp:'' };
+  const re = /\((\d{2,4})\)([^(]+)/g;
+  let m, achou = false;
+  while((m = re.exec(raw))){
+    const ai = m[1], val = m[2].trim();
+    achou = true;
+    if(ai === '01' && /^\d{14}$/.test(val)) out.pc = val;
+    else if(ai === '17' && /^\d{6}$/.test(val)) out.validadeRaw = val;
+    else if(ai === '10') out.lote = val;
+    else if(ai === '21') out.sn = val;
+    else if(ai === '714' && /^\d{7}$/.test(val)) out.cnp = val;
+  }
+  if(!achou || !/^\d{14}$/.test(out.pc)) return null;
+  return out;
+}
 function parseGS1(raw){
-  const s = (raw||'').trim().replace(/\s+/g,'');
+  const s0 = (raw||'').trim();
+  if(/\(\d{2,4}\)/.test(s0)){
+    const viaHRI = parseGS1HRI(s0);
+    if(viaHRI) return viaHRI;
+  }
+  const s = s0.replace(/\s+/g,'');
   if(s.length < 26) return null;
   if(s.slice(0,2) !== '01') return null;
   const gtin = s.slice(2,16);
   if(!/^\d{14}$/.test(gtin)) return null;
-  if(s.slice(-10,-7) !== '714') return null;
-  const cnp = s.slice(-7);
-  if(!/^\d{7}$/.test(cnp)) return null;
-  const middle = s.slice(16, s.length-10);
-  if(middle.length < 8) return null;
 
-  const perms = [
-    ['17','10','21'],['17','21','10'],
-    ['10','17','21'],['10','21','17'],
-    ['21','17','10'],['21','10','17']
-  ];
-
-  function scoreFields(exp, lot, serial){
-    let sc = 0;
-    if(exp.length===6 && /^\d{6}$/.test(exp)){
-      const mm = parseInt(exp.slice(2,4),10);
-      const dd = parseInt(exp.slice(4,6),10);
-      if(mm>=1 && mm<=12) sc += 10;
-      if(dd>=0 && dd<=31) sc += 5;
-    }
-    if(lot.length>=1 && lot.length<=12) sc += 3;
-    if(serial.length>=8 && serial.length<=20) sc += 3;
-    sc -= Math.abs(lot.length-7)*0.1;
-    sc -= Math.abs(serial.length-14)*0.1;
-    return sc;
+  let corpo = s.slice(16);
+  let cnp = '';
+  const pos714 = corpo.indexOf('714');
+  if(pos714 !== -1 && /^\d{7}$/.test(corpo.slice(pos714+3, pos714+10))){
+    cnp = corpo.slice(pos714+3, pos714+10);
+    corpo = corpo.slice(0, pos714) + corpo.slice(pos714+10);
   }
+  if(!corpo.length) return cnp ? { pc:gtin, validadeRaw:'', lote:'', sn:'', cnp } : null;
+
+  function interpretacoesLado(txt){
+    if(!txt) return [{ sn:'', lote:'' }];
+    const marcador = txt.slice(0,2);
+    if(marcador !== '21' && marcador !== '10') return [];
+    const outro = marcador === '21' ? '10' : '21';
+    const out = [];
+    if(marcador==='21') out.push({ sn: txt.slice(2), lote: '' });
+    else out.push({ sn: '', lote: txt.slice(2) });
+    // o outro campo pode estar embutido no mesmo lado (fabricante pôs os
+    // dois campos variáveis antes/depois da validade, não um de cada lado)
+    const resto = txt.slice(2);
+    let q = resto.indexOf(outro);
+    while(q !== -1){
+      if(q > 0){
+        const v1 = resto.slice(0,q), v2 = resto.slice(q+2);
+        if(v1 && v2) out.push(marcador==='21' ? { sn:v1, lote:v2 } : { sn:v2, lote:v1 });
+      }
+      q = resto.indexOf(outro, q+1);
+    }
+    return out;
+  }
+  function pontuarCampo(v, alvo){ return v ? -Math.abs(v.length-alvo)*0.1 : 0; }
 
   let best=null, bestScore=-1;
-  for(const order of perms){
-    if(middle.slice(0,2) !== order[0]) continue;
-    const len0opts = order[0]==='17' ? [6] : range(0, middle.length-2);
-    for(const l0 of len0opts){
-      const p1 = 2+l0;
-      if(p1+2 > middle.length) continue;
-      if(middle.slice(p1,p1+2) !== order[1]) continue;
-      const val0 = middle.slice(2,p1);
-      const len1opts = order[1]==='17' ? [6] : range(0, middle.length-p1-2);
-      for(const l1 of len1opts){
-        const p2 = p1+2+l1;
-        if(p2+2 > middle.length) continue;
-        if(middle.slice(p2,p2+2) !== order[2]) continue;
-        const val1 = middle.slice(p1+2,p2);
-        const val2 = middle.slice(p2+2);
-        if(order[2]==='17' && val2.length!==6) continue;
-        if(order[2]==='17' && !/^\d{6}$/.test(val2)) continue;
-        const vals = {}; vals[order[0]]=val0; vals[order[1]]=val1; vals[order[2]]=val2;
-        if(vals['17'].length!==6 || !/^\d{6}$/.test(vals['17'])) continue;
-        const sc = scoreFields(vals['17'], vals['10'], vals['21']);
-        if(sc > bestScore){
-          bestScore = sc;
-          best = { pc:gtin, validadeRaw:vals['17'], lote:vals['10'], sn:vals['21'], cnp:cnp };
-        }
+  for(let p=0; p+8<=corpo.length; p++){
+    if(corpo.slice(p,p+2) !== '17') continue;
+    const exp = corpo.slice(p+2,p+8);
+    if(!/^\d{6}$/.test(exp)) continue;
+    const mm = parseInt(exp.slice(2,4),10), dd = parseInt(exp.slice(4,6),10);
+    if(mm<1 || mm>12 || dd<0 || dd>31) continue;
+
+    const antesOpts = interpretacoesLado(corpo.slice(0,p));
+    const depoisOpts = interpretacoesLado(corpo.slice(p+8));
+    if(!antesOpts.length || !depoisOpts.length) continue;
+
+    for(const a of antesOpts){
+      for(const d of depoisOpts){
+        if(a.sn && d.sn) continue;
+        if(a.lote && d.lote) continue;
+        const sn = a.sn || d.sn, lote = a.lote || d.lote;
+        let sc = 15 + pontuarCampo(sn, 12) + pontuarCampo(lote, 8);
+        if(sn) sc += 1;
+        if(lote) sc += 1;
+        if(sc > bestScore){ bestScore = sc; best = { pc:gtin, validadeRaw:exp, lote:lote||'', sn:sn||'', cnp }; }
       }
     }
   }
@@ -996,6 +1069,7 @@ let dayModalDate = null;
 let calMonthCursor = todayISO().slice(0,7); // 'YYYY-MM'
 let udetailTab = 'info';
 let scanState = {};
+window.scanState = scanState; // mutado só por referência (scanState[id]=...) a partir daqui em diante — nunca reatribuído — por isso um único espelho chega; ver handlers inline em renderScanResult() que lhe acedem diretamente (ex.: onchange="scanState['...'].pickedMedId=...")
 let scanMode = 'nova'; // 'nova' | 'consumo' | 'pesquisa'
 
 /* ===================== DERIVADOS: validade / consumo ===================== */
@@ -1298,6 +1372,7 @@ function renderUtenteModalBody(){
 }
 function submitUtenteForm(){
   if(!draftUtente.nome || !draftUtente.nome.trim()){ showToast('Indique o nome do utente.'); return; }
+  const eraNovo = !draftUtente.id;
   if(draftUtente.id){
     const idx = UTENTES.findIndex(x=>x.id===draftUtente.id);
     if(idx>=0) UTENTES[idx] = draftUtente;
@@ -1308,6 +1383,7 @@ function submitUtenteForm(){
   }
   saveJSON(UTENTES_KEY, UTENTES);
   pushToSheets('utente', draftUtente);
+  if(eraNovo && window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'criar_utente');
   closeModal('utenteModalOverlay');
   if(currentView==='utenteDetalhe' && currentUtenteId===draftUtente.id) renderUtenteDetalhe({utenteId:draftUtente.id});
   else renderUtentes();
@@ -1661,36 +1737,43 @@ function medScanToggleCamera(containerId){
   const wrap = document.getElementById('video_'+containerId);
   const st = scanState[containerId] = scanState[containerId] || {};
   if(st.stream){ stopCamera(containerId); return; }
-  ensureJsQR(()=>{
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-      st.stream = stream;
-      const video = document.getElementById('v_'+containerId);
-      video.srcObject = stream;
-      video.play();
-      wrap.classList.add('show');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      function tick(){
-        if(!st.stream) return;
-        if(video.readyState === video.HAVE_ENOUGH_DATA){
-          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // A biblioteca (zxing-wasm) carrega em paralelo com a câmara, não antes —
+  // a pré-visualização aparece de imediato (ver toggleCamera/module-chrome.js).
+  window.ModuleChrome.ensureBarcodeLib(()=>{}, ()=> showToast('Não foi possível carregar o leitor de DataMatrix/QR (sem ligação à internet?). Em alguns navegadores a câmara pode continuar a funcionar com deteção nativa.'));
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
+    st.stream = stream;
+    const video = document.getElementById('v_'+containerId);
+    video.srcObject = stream;
+    video.play();
+    wrap.classList.add('show');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    function tick(){
+      if(!st.stream) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA && !st.aDescodificar){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const agora = performance.now();
+        if(agora - (st.ultimaTentativa||0) > 180){
+          st.aDescodificar = true;
+          st.ultimaTentativa = agora;
           const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-          const code = window.jsQR(img.data, img.width, img.height);
-          if(code && code.data){
-            document.getElementById('hw_'+containerId).value = code.data;
-            medScanAnalyze(containerId);
-            stopCamera(containerId);
-            return;
-          }
+          window.ModuleChrome.decodeBarcodeFrame(canvas, img).then(texto=>{
+            st.aDescodificar = false;
+            if(texto && st.stream){
+              document.getElementById('hw_'+containerId).value = texto;
+              medScanAnalyze(containerId);
+              stopCamera(containerId);
+            }
+          }).catch(()=>{ st.aDescodificar = false; });
         }
-        st.raf = requestAnimationFrame(tick);
       }
       st.raf = requestAnimationFrame(tick);
-    }).catch(()=>{
-      showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
-    });
-  }, ()=> showToast('Não foi possível carregar o leitor de câmara (sem ligação à internet?).'));
+    }
+    st.raf = requestAnimationFrame(tick);
+  }).catch(()=>{
+    showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
+  });
 }
 function applyMedScanResult(containerId){
   const data = (scanState[containerId]||{}).lastResult;
@@ -2072,6 +2155,7 @@ async function submitReceitaForm(){
   }
   saveJSON(RECEITAS_KEY, RECEITAS);
   pushToSheets('receita', { utenteId:d.utenteId, tipo:d.tipo, numeroReceita:d.numeroReceita, criadoEm:d.criadoEm });
+  if(isNovo && window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'registar_receita');
   closeModal('receitaModalOverlay');
   renderUdetailTab();
   showToast('Receita guardada.');
@@ -2483,15 +2567,6 @@ function confirmScanConsumo(containerId){
   renderHome();
 }
 
-/* ---- Câmara (jsQR) ---- */
-function ensureJsQR(cb, errCb){
-  if(window.jsQR){ cb(); return; }
-  const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js';
-  s.onload = cb;
-  s.onerror = ()=>{ if(errCb) errCb(); };
-  document.head.appendChild(s);
-}
 function toggleCamera(containerId){
   const wrap = document.getElementById('video_'+containerId);
   const st = scanState[containerId] = scanState[containerId] || {};
@@ -2499,43 +2574,50 @@ function toggleCamera(containerId){
     stopCamera(containerId);
     return;
   }
-  ensureJsQR(()=>{
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
-      st.stream = stream;
-      const video = document.getElementById('v_'+containerId);
-      video.srcObject = stream;
-      video.play();
-      wrap.classList.add('show');
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      function tick(){
-        if(!st.stream) return;
-        if(video.readyState === video.HAVE_ENOUGH_DATA){
-          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  // A biblioteca (zxing-wasm) carrega em paralelo com a câmara, não antes —
+  // a pré-visualização aparece de imediato (ver module-chrome.js).
+  window.ModuleChrome.ensureBarcodeLib(()=>{}, ()=> showToast('Não foi possível carregar o leitor de DataMatrix/QR (sem ligação à internet?). Em alguns navegadores a câmara pode continuar a funcionar com deteção nativa.'));
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream=>{
+    st.stream = stream;
+    const video = document.getElementById('v_'+containerId);
+    video.srcObject = stream;
+    video.play();
+    wrap.classList.add('show');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    function tick(){
+      if(!st.stream) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA && !st.aDescodificar){
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const agora = performance.now();
+        if(agora - (st.ultimaTentativa||0) > 180){
+          st.aDescodificar = true;
+          st.ultimaTentativa = agora;
           const img = ctx.getImageData(0,0,canvas.width,canvas.height);
-          const code = window.jsQR(img.data, img.width, img.height);
-          if(code && code.data){
-            document.getElementById('hw_'+containerId).value = code.data;
-            handleScanValue(code.data, containerId);
-            stopCamera(containerId);
-            return;
-          }
+          window.ModuleChrome.decodeBarcodeFrame(canvas, img).then(texto=>{
+            st.aDescodificar = false;
+            if(texto && st.stream){
+              document.getElementById('hw_'+containerId).value = texto;
+              handleScanValue(texto, containerId);
+              stopCamera(containerId);
+            }
+          }).catch(()=>{ st.aDescodificar = false; });
         }
-        st.raf = requestAnimationFrame(tick);
       }
       st.raf = requestAnimationFrame(tick);
-    }).catch(()=>{
-      showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
-    });
-  }, ()=> showToast('Não foi possível carregar o leitor de câmara (sem ligação à internet?).'));
+    }
+    st.raf = requestAnimationFrame(tick);
+  }).catch(()=>{
+    showToast('Não foi possível aceder à câmara. Verifique as permissões do navegador.');
+  });
 }
 function stopCamera(containerId){
   const st = scanState[containerId];
   if(!st) return;
   if(st.raf) cancelAnimationFrame(st.raf);
   if(st.stream) st.stream.getTracks().forEach(t=>t.stop());
-  st.stream = null; st.raf = null;
+  st.stream = null; st.raf = null; st.aDescodificar = false; st.ultimaTentativa = 0;
   const wrap = document.getElementById('video_'+containerId);
   if(wrap) wrap.classList.remove('show');
 }
@@ -2600,6 +2682,7 @@ function renderCalendario(){
 }
 function openDayModal(iso){
   dayModalDate = iso;
+  window.dayModalDate = dayModalDate; // lido por onclick="openAddEventModal(dayModalDate)" inline no rodapé do modal do dia — corre no escopo global
   const evts = eventsOnDate(iso).sort((a,b)=>(a.tipo||'').localeCompare(b.tipo||''));
   document.getElementById('dayModalTitle').textContent = 'Eventos — ' + fmtDatePt(iso);
   document.getElementById('dayModalBody').innerHTML = evts.length ? evts.map(e=>{
@@ -2679,6 +2762,7 @@ function renderEventModalBody(){
 function submitEventForm(){
   if(!draftEvento.utenteId){ showToast('Escolha o utente.'); return; }
   if(!draftEvento.data){ showToast('Indique a data.'); return; }
+  const eraNovo = !draftEvento.id;
   if(draftEvento.id){
     const idx = EVENTOS.findIndex(x=>x.id===draftEvento.id);
     if(idx>=0) EVENTOS[idx] = draftEvento;
@@ -2689,6 +2773,7 @@ function submitEventForm(){
   }
   saveJSON(EVENTOS_KEY, EVENTOS);
   pushToSheets('evento', draftEvento);
+  if(eraNovo && window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'criar_evento');
   closeModal('eventModalOverlay');
   if(currentView==='calendario') renderCalendario();
   else if(currentView==='utenteDetalhe') renderUdetailTab();
@@ -2849,7 +2934,7 @@ function renderRotuloEditor(){
     <div class="mgmt-section">
       <div class="mgmt-section-head"><span style="font-family:'Manrope',sans-serif;font-weight:800;color:var(--brand-deep);font-size:14px;">Rótulos guardados anteriormente</span></div>
       ${historico.map(r=>`<div class="mgmt-item-row"><div class="mgmt-item-info"><b>${escapeHtml(r.tipo)} · ${fmtDatePt(r.dataInicio)} a ${fmtDatePt(r.dataFim)}</b><span>Guardado em ${fmtDateTimePt(r.atualizadoEm)}</span></div>
-        <div class="mgmt-item-actions"><button class="icon-btn" title="Abrir" onclick="carregarRotulo('${r.id}')">📂</button><button class="icon-btn danger" title="Eliminar" onclick="removerRotulo('${r.id}')">🗑️</button></div></div>`).join('')}
+        <div class="mgmt-item-actions"><button class="icon-btn" title="Reimprimir" onclick="reimprimirRotulo('${r.id}')">🖨️</button><button class="icon-btn" title="Abrir" onclick="carregarRotulo('${r.id}')">📂</button><button class="icon-btn danger" title="Eliminar" onclick="removerRotulo('${r.id}')">🗑️</button></div></div>`).join('')}
     </div>` : ''}
   `;
 }
@@ -2870,8 +2955,116 @@ function regenerarRotuloDaMedicacao(){
   window.draftRotulo = draftRotulo;
   renderRotuloEditor();
 }
+/* ---- Dedução de stock ao guardar um rótulo -----------------------------
+   Cada linha "dentro"/"fora" tem posologia (poso.JJ..DT) e o rótulo tem um
+   período (dataInicio..dataFim, inclusive) — a quantidade de um medicamento
+   colocada nesse rótulo é a soma diária da posologia × nº de dias do
+   período. Ao guardar, deduz-se essa quantidade à embalagem em uso desse
+   medicamento (mesma noção de "embalagem em uso" já usada em
+   diasRestantesEmbalagem/embalagemEmUsoDeMed). Para editar/eliminar sem
+   duplicar/perder contagem, guarda-se no próprio rótulo quanto foi
+   deduzido por medicamento (_stockDeducoes); ao voltar a guardar só se
+   aplica o DELTA face ao que já tinha sido deduzido, e ao eliminar
+   devolve-se a quantidade gravada. Linhas adicionadas manualmente (sem
+   medId associado a um medicamento do utente) não têm como ser ligadas a
+   uma embalagem de stock, por isso não entram nesta conta. */
+function diasNoIntervalo(inicioISO, fimISO){
+  if(!inicioISO || !fimISO) return 0;
+  const di = new Date(inicioISO+'T00:00:00'), df = new Date(fimISO+'T00:00:00');
+  if(isNaN(di.getTime()) || isNaN(df.getTime())) return 0;
+  return Math.max(0, Math.round((df-di)/86400000) + 1);
+}
+function rotuloQuantidadesPorMed(rotulo){
+  const dias = diasNoIntervalo(rotulo.dataInicio, rotulo.dataFim);
+  const out = {};
+  if(!dias) return out;
+  (rotulo.linhasDentro||[]).concat(rotulo.linhasFora||[]).forEach(l=>{
+    if(!l.medId) return;
+    let diario = 0;
+    for(const slot of TIME_SLOTS) diario += parsePosoQty(l.poso && l.poso[slot.key]);
+    if(!diario) return;
+    out[l.medId] = (out[l.medId]||0) + diario*dias;
+  });
+  return out;
+}
+function aplicarDeducaoStockRotulo(rotulo, deducoesAnteriores){
+  const novas = rotuloQuantidadesPorMed(rotulo);
+  const medIds = new Set(Object.keys(novas).concat(Object.keys(deducoesAnteriores||{})));
+  let algumaAlteracao = false;
+  medIds.forEach(medId=>{
+    const antes = (deducoesAnteriores && deducoesAnteriores[medId]) || 0;
+    const depois = novas[medId] || 0;
+    const delta = depois - antes; // >0: deduzir mais; <0: devolver a diferença
+    if(!delta) return;
+    const item = embalagemEmUsoDeMed(medId) || STOCK.filter(s=>s.medicamentoId===medId).sort((a,b)=>(b.dataEntrada||'').localeCompare(a.dataEntrada||''))[0];
+    if(!item) return;
+    item.quantidadeAtual = Math.max(0, Number(item.quantidadeAtual||0) - delta);
+    item.historico = (item.historico||[]).concat([{data:nowISO(), tipo:'rotulo', quantidade:-delta, notas:`Rótulo ${fmtDatePt(rotulo.dataInicio)} a ${fmtDatePt(rotulo.dataFim)}`}]);
+    if(item.quantidadeAtual===0 && item.status==='em_uso') item.status = 'esgotada';
+    else if(item.quantidadeAtual>0 && item.status==='esgotada' && delta<0) item.status = 'em_uso';
+    algumaAlteracao = true;
+  });
+  rotulo._stockDeducoes = novas;
+  if(algumaAlteracao) saveJSON(STOCK_KEY, STOCK);
+}
+function devolverDeducaoStockRotulo(rotulo){
+  const deducoes = rotulo && rotulo._stockDeducoes;
+  if(!deducoes) return;
+  let algumaAlteracao = false;
+  Object.keys(deducoes).forEach(medId=>{
+    const qtd = deducoes[medId];
+    if(!qtd) return;
+    const item = embalagemEmUsoDeMed(medId) || STOCK.filter(s=>s.medicamentoId===medId).sort((a,b)=>(b.dataEntrada||'').localeCompare(a.dataEntrada||''))[0];
+    if(!item) return;
+    item.quantidadeAtual = Number(item.quantidadeAtual||0) + qtd;
+    item.historico = (item.historico||[]).concat([{data:nowISO(), tipo:'rotulo', quantidade:qtd, notas:'Estorno por eliminação de rótulo'}]);
+    if(item.status==='esgotada' && item.quantidadeAtual>0) item.status = 'em_uso';
+    algumaAlteracao = true;
+  });
+  if(algumaAlteracao) saveJSON(STOCK_KEY, STOCK);
+}
+
+/* ---- Alerta "PIM a terminar" (email via Google Sheets) -----------------
+   Dispara quando o rótulo em vista (guardado ou recém-carregado) está a
+   `diasPimAviso` dias (ou menos) do fim do período — reaproveita o mesmo
+   limiar já usado para o alerta "PIM a terminar" de eventos/entregas
+   (alertThresholdsFor). Deduplicado por dia (uma vez por rótulo/dia) num
+   localStorage próprio, não sincronizado — é só para não reenviar o mesmo
+   alerta a cada re-render. kind: 'alerta_pim_terminar', payload:
+   { utenteId, utenteNome, medicamentoNome, diasRestantes, rotuloId }. */
+const PIM_ALERTAS_ENVIADOS_KEY = 'pim_alertas_terminar_enviados_v1';
+function jaAlertouPimHoje(rotuloId){
+  const enviados = loadJSON(PIM_ALERTAS_ENVIADOS_KEY, {});
+  return enviados[rotuloId] === todayISO();
+}
+function marcarAlertaPimEnviado(rotuloId){
+  const enviados = loadJSON(PIM_ALERTAS_ENVIADOS_KEY, {});
+  enviados[rotuloId] = todayISO();
+  try{ localStorage.setItem(PIM_ALERTAS_ENVIADOS_KEY, JSON.stringify(enviados)); }catch(e){}
+}
+function checkAlertaPimTerminar(rotulo){
+  if(!rotulo || !rotulo.id || !rotulo.dataFim) return;
+  const dias = diasParaValidade(rotulo.dataFim);
+  if(dias===null || dias<0) return;
+  const u = utenteById(rotulo.utenteId);
+  const limiar = u ? alertThresholdsFor(u).diasPim : CONFIG.diasPimAviso;
+  if(dias>limiar) return;
+  if(jaAlertouPimHoje(rotulo.id)) return;
+  const medicamentoNome = (rotulo.linhasDentro||[]).concat(rotulo.linhasFora||[]).map(l=>l.nome).filter(Boolean).join(', ');
+  pushToSheets('alerta_pim_terminar', {
+    utenteId: rotulo.utenteId,
+    utenteNome: u ? u.nome : '',
+    medicamentoNome,
+    diasRestantes: dias,
+    rotuloId: rotulo.id,
+  });
+  marcarAlertaPimEnviado(rotulo.id);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'alerta_terminar');
+}
 function salvarRotulo(){
   draftRotulo.atualizadoEm = nowISO();
+  const anterior = draftRotulo.id ? ROTULOS.find(x=>x.id===draftRotulo.id) : null;
+  const deducoesAnteriores = anterior ? anterior._stockDeducoes : null;
   if(draftRotulo.id){
     const idx = ROTULOS.findIndex(x=>x.id===draftRotulo.id);
     if(idx>=0) ROTULOS[idx] = draftRotulo;
@@ -2880,8 +3073,11 @@ function salvarRotulo(){
     draftRotulo.criadoEm = nowISO();
     ROTULOS.unshift(draftRotulo);
   }
+  aplicarDeducaoStockRotulo(draftRotulo, deducoesAnteriores);
   saveJSON(ROTULOS_KEY, ROTULOS);
   pushToSheets('rotulo', draftRotulo);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'criar_rotulo');
+  checkAlertaPimTerminar(draftRotulo);
   showToast('Rótulo guardado.');
   renderRotuloEditor();
 }
@@ -2891,30 +3087,40 @@ function carregarRotulo(id){
   draftRotulo = JSON.parse(JSON.stringify(r));
   window.draftRotulo = draftRotulo;
   renderRotuloEditor();
+  checkAlertaPimTerminar(r);
   showToast('Rótulo carregado — pode editar livremente antes de reimprimir.');
 }
 function removerRotulo(id){
-  if(!confirm('Eliminar este rótulo guardado?')) return;
+  if(!confirm('Eliminar este rótulo guardado? A quantidade que tinha sido deduzida do stock é devolvida.')) return;
+  const r = ROTULOS.find(x=>x.id===id);
+  devolverDeducaoStockRotulo(r);
   ROTULOS = ROTULOS.filter(x=>x.id!==id);
   saveJSON(ROTULOS_KEY, ROTULOS);
   renderRotuloEditor();
 }
-function printRotulo(){
-  const u = utenteById(draftRotulo.utenteId);
+function reimprimirRotulo(id){
+  const r = ROTULOS.find(x=>x.id===id);
+  if(!r){ showToast('Rótulo não encontrado.'); return; }
+  printRotulo(r);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('pim', 'reimprimir_rotulo');
+}
+function printRotulo(rotuloParaImprimir){
+  const rotulo = rotuloParaImprimir || draftRotulo;
+  const u = utenteById(rotulo.utenteId);
   function tbl(titulo, linhas){
     return `<h4>${titulo}</h4><table class="ps-table"><thead><tr><th>Nome e dosagem</th><th>Forma</th>${TIME_SLOTS.map(s=>`<th>${s.key}</th>`).join('')}<th>Aspeto</th><th>Cor</th><th>Observações</th></tr></thead>
     <tbody>${linhas.filter(r=>r.nome).map(r=>`<tr><td>${escapeHtml(r.nome)}</td><td>${escapeHtml(r.formaFarm)}</td>${TIME_SLOTS.map(s=>`<td style="text-align:center;">${escapeHtml(r.poso[s.key]||'')}</td>`).join('')}<td>${escapeHtml(r.forma)}</td><td>${escapeHtml(r.cor)}</td><td>${escapeHtml(r.obs)}</td></tr>`).join('') || '<tr><td colspan="11" style="color:#9C8A55;">Sem medicação nesta categoria.</td></tr>'}</tbody></table>`;
   }
   const html = `
     <div class="print-sheet" id="printSheetInner">
-      <div class="ps-header"><img src="${FARMACIA_LOGO_SRC}" alt="logo"><div class="ps-title"><b>${escapeHtml(u?u.nome:'')}</b><small>${fmtDatePt(draftRotulo.dataInicio)} a ${fmtDatePt(draftRotulo.dataFim)} · ${escapeHtml(draftRotulo.tipo)}</small></div></div>
+      <div class="ps-header"><img src="${FARMACIA_LOGO_SRC}" alt="logo"><div class="ps-title"><b>${escapeHtml(u?u.nome:'')}</b><small>${fmtDatePt(rotulo.dataInicio)} a ${fmtDatePt(rotulo.dataFim)} · ${escapeHtml(rotulo.tipo)}</small></div></div>
       <div class="ps-contact">Preparação Individualizada da Medicação · ${escapeHtml(nomeFarmaciaAtual())}</div>
       <div class="ps-body">
-        ${tbl('Terapêutica dentro do Dispositivo Organizador da Terapêutica', draftRotulo.linhasDentro)}
-        ${tbl('Terapêutica fora do Dispositivo Organizador da Terapêutica', draftRotulo.linhasFora)}
-        <p style="font-size:11px;color:#9C8A55;margin-top:10px;">Observações: ${escapeHtml(draftRotulo.observacoes||'—')}<br>DOT preparado a ${fmtDatePt(draftRotulo.dataPreparacao)} por ${escapeHtml(draftRotulo.preparadoPor||'—')}</p>
+        ${tbl('Terapêutica dentro do Dispositivo Organizador da Terapêutica', rotulo.linhasDentro)}
+        ${tbl('Terapêutica fora do Dispositivo Organizador da Terapêutica', rotulo.linhasFora)}
+        <p style="font-size:11px;color:#9C8A55;margin-top:10px;">Observações: ${escapeHtml(rotulo.observacoes||'—')}<br>DOT preparado a ${fmtDatePt(rotulo.dataPreparacao)} por ${escapeHtml(rotulo.preparadoPor||'—')}</p>
         <div class="ps-sign">
-          <div class="ps-sign-block"><label>Preparado por</label><div class="ps-sign-line">${escapeHtml(draftRotulo.preparadoPor||'')}</div></div>
+          <div class="ps-sign-block"><label>Preparado por</label><div class="ps-sign-line">${escapeHtml(rotulo.preparadoPor||'')}</div></div>
           <div class="ps-sign-block"><label>Supervisão farmacêutica</label><div class="ps-sign-line"></div></div>
         </div>
       </div>
@@ -3283,6 +3489,9 @@ window.calGoToday = calGoToday;
 window.carregarRotulo = carregarRotulo;
 window.clearDraftReceitaFicheiro = clearDraftReceitaFicheiro;
 window.closeModal = closeModal;
+window.confirmScanConsumo = confirmScanConsumo;
+window.confirmScanNova = confirmScanNova;
+window.confirmScanSearch = confirmScanSearch;
 window.deleteEventFromModal = deleteEventFromModal;
 window.exportBackup = exportBackup;
 window.exportUtentesExcel = exportUtentesExcel;
@@ -3307,6 +3516,7 @@ window.openEditReceitaModal = openEditReceitaModal;
 window.openEditStockModal = openEditStockModal;
 window.openEditUtenteModal = openEditUtenteModal;
 window.openRotuloEditor = openRotuloEditor;
+window.parseGS1 = parseGS1; // exposto para depuração/testes (não é chamado de nenhum onclick inline)
 window.printCalendarioMes = printCalendarioMes;
 window.printFichaUtente = printFichaUtente;
 window.printReceitaArquivo = printReceitaArquivo;
@@ -3314,6 +3524,7 @@ window.printReceitaCodigos = printReceitaCodigos;
 window.printRotulo = printRotulo;
 window.pushAlertsToSheets = pushAlertsToSheets;
 window.regenerarRotuloDaMedicacao = regenerarRotuloDaMedicacao;
+window.reimprimirRotulo = reimprimirRotulo;
 window.removeMed = removeMed;
 window.removeReceita = removeReceita;
 window.removeRotuloLinha = removeRotuloLinha;

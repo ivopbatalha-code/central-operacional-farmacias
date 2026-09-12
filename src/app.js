@@ -10,6 +10,7 @@ import { renderMainContent, renderCrumb } from "./ui/main-content.js";
 import { initToasts } from "./ui/toast.js";
 import { initPalette } from "./ui/palette.js";
 import { initModals } from "./ui/modals.js";
+import { initPoupanca } from "./ui/poupanca.js";
 import { isAutenticado, getPerfil, login, signup, logout } from "./authClient.js";
 import { aoExpirarSessao } from "./db.js";
 
@@ -21,7 +22,8 @@ const ICON_ELEMENT_MAP = {
   searchIcon2: "search", plusIcon2: "plus", htmlIcon: "upload", arquivoIcon: "upload",
   imgIcon2: "image", tagIcon2: "tag", imgIcon3: "image", chartIcon: "chart", boxesIcon: "boxes",
   downloadIcon: "download", downloadIcon2: "download", uploadIcon3: "upload", uploadIcon4: "upload",
-  alertIcon: "alertTriangle", trashIcon2: "trash", boltIcon: "bolt", logoutIcon: "logout"
+  alertIcon: "alertTriangle", trashIcon2: "trash", boltIcon: "bolt", logoutIcon: "logout",
+  poupancaIcon1: "bolt", chartIcon2: "chart", boxesIcon2: "boxes", poupancaRefreshIcon: "refresh", poupancaPdfIcon: "download"
 };
 function preencherIconesEstaticos() {
   Object.entries(ICON_ELEMENT_MAP).forEach(([id, name]) => {
@@ -99,6 +101,28 @@ const modalEls = {
 };
 const modals = initModals(modalEls, store, actions);
 initToasts(toastStack, bus);
+
+/* ---------- painel "Poupança & ROI" ---------- */
+const poupancaEls = {
+  poupValorHoraInput: document.getElementById("poupValorHoraInput"),
+  poupPeriodoInicio: document.getElementById("poupPeriodoInicio"),
+  poupPeriodoFim: document.getElementById("poupPeriodoFim"),
+  btnPoupAtualizar: document.getElementById("btnPoupAtualizar"),
+  poupResumoGrid: document.getElementById("poupResumoGrid"),
+  poupCustomResumo: document.getElementById("poupCustomResumo"),
+  poupChartTendencia: document.getElementById("poupChartTendencia"),
+  poupChartModulos: document.getElementById("poupChartModulos"),
+  poupChartTarefas: document.getElementById("poupChartTarefas"),
+  btnPoupExportarPdf: document.getElementById("btnPoupExportarPdf"),
+  poupTabelaTarefasBody: document.getElementById("poupTabelaTarefasBody")
+};
+const poupanca = initPoupanca(poupancaEls, dataStore);
+let poupancaCarregadaUmaVez = false;
+document.querySelector('#modalConfig .modal-tab[data-tab="poupanca"]')?.addEventListener("click", () => {
+  // só recarrega dados do servidor da primeira vez que a aba é aberta nesta
+  // sessão — trocar de aba dentro do mesmo modal não deve refazer pedidos.
+  if (!poupancaCarregadaUmaVez) { poupancaCarregadaUmaVez = true; poupanca.refrescarTudo(); }
+});
 
 /* ---------- paleta de comandos ---------- */
 const palette = initPalette(

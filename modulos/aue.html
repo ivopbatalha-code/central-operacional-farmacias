@@ -1343,10 +1343,12 @@ async function saveCurrent(){
     pedidos[idx] = {...pedidos[idx], ...payload, updatedAt: Date.now()};
     savedPedido = pedidos[idx];
     showToast('Pedido AUE atualizado e guardado neste computador.');
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('aue', 'atualizar_pedido');
   }else{
     savedPedido = {id:pedidoId, criado: todayISO(), deleted:false, updatedAt: Date.now(), ...payload};
     pedidos.unshift(savedPedido);
     showToast('Novo pedido AUE criado e guardado neste computador.');
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('aue', 'criar_pedido');
   }
   saveData();
   closeModal();

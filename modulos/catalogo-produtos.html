@@ -370,7 +370,10 @@ document.getElementById('btnManualGuardar').addEventListener('click', async () =
       document.getElementById('btnManualCancelar').style.display = 'none';
     } else {
       const { adicionados, ignorados } = await adicionarProdutos(dataStore, [[nome, codigo, fam]], CATALOGO);
-      if(adicionados.length) showToast('Produto adicionado ao catálogo.', 'ok');
+      if(adicionados.length){
+        showToast('Produto adicionado ao catálogo.', 'ok');
+        if(window.ModuleChrome) window.ModuleChrome.registarUso('catalogo-produtos', 'adicionar_produto');
+      }
       else if(ignorados.length) showToast('Já existe um produto com esse código.', 'err');
     }
     document.getElementById('manualNome').value = '';
@@ -472,6 +475,7 @@ function renderPreviewImportacao(containerEl, linhas, origemLabel){
     try{
       const { adicionados, ignorados } = await adicionarProdutos(dataStore, produtos, CATALOGO);
       showToast(`${adicionados.length} produto(s) importado(s) via ${origemLabel}` + (ignorados.length ? ` (${ignorados.length} ignorado(s), código já existente)` : '') + '.', 'ok');
+      if(window.ModuleChrome && adicionados.length > 0) window.ModuleChrome.registarUso('catalogo-produtos', 'importar_produtos', adicionados.length);
       containerEl.innerHTML = '';
       await carregarCatalogo();
     }catch(err){

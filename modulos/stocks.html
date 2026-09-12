@@ -130,6 +130,7 @@
   table.items input[type="number"]{ width:76px; font-family:var(--mono); font-size:13px; padding:6px 8px;
     border-radius:6px; border:1.5px solid var(--line); text-align:right; }
   table.items input[type="text"].obs{ width:100%; font-size:13px; padding:6px 8px; border-radius:6px; border:1.5px solid var(--line); }
+  table.items select.obs{ width:100%; font-size:13px; padding:6px 8px; border-radius:6px; border:1.5px solid var(--line); background:#fff; font-family:var(--sans); }
   table.items .code{ font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); }
   table.items .diff{ font-family:var(--mono); font-weight:700; }
   table.items .diff.pos{ color:var(--ok); }
@@ -281,7 +282,7 @@
           <div class="panel-head">
             <div>
               <h2>Produtos com stock errado</h2>
-              <p class="hint">Indique o stock em sistema, o stock contado, e observações</p>
+              <p class="hint">Indique o stock em sistema, o stock contado, e o motivo</p>
             </div>
           </div>
           <div class="panel-body" style="padding:0; overflow-x:auto;">
@@ -293,7 +294,7 @@
                   <th>Stock sistema</th>
                   <th>Stock contado</th>
                   <th>Diferença</th>
-                  <th style="width:24%;">Observações</th>
+                  <th style="width:24%;">Motivo</th>
                   <th></th>
                 </tr>
               </thead>
@@ -318,6 +319,8 @@
     <div class="modal-body">
       <label>Nome da lista</label>
       <input type="text" id="modalListName" placeholder="Ex.: 08-08-2026">
+      <label>Nome do operador</label>
+      <input type="text" id="modalListOperador" placeholder="Ex.: Ana Silva">
     </div>
     <div class="modal-foot">
       <button class="btn ghost" data-close-modal>Cancelar</button>
@@ -651,7 +654,12 @@ function toast(msg){
 /* ============================================================
    2. ESTADO
    ============================================================ */
-let LISTS = {};       // id -> {id, nome, criadoEm, atualizadoEm, items:[{codigo,designacao,fam,stockSistema,stockContado,obs}]}
+let LISTS = {};       // id -> {id, nome, operador, criadoEm, atualizadoEm, items:[{codigo,designacao,fam,stockSistema,stockContado,motivo,motivoOutros}]}
+                       // motivo: 'pressa' | 'procurei' | 'outros' | '' — ver MOTIVO_OPTIONS abaixo.
+                       // motivoOutros: texto livre, só relevante quando motivo==='outros'.
+                       // Registos antigos podem não ter `motivo` (nem `operador`) e ter em vez disso um
+                       // campo `obs` (texto livre) — ver renderMotivoCell()/motivoParaTexto() para o
+                       // tratamento de compatibilidade com esses registos antigos.
 let currentListId = null;
 
 function uid(){ return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -662,6 +670,27 @@ function fmtDate(iso){
     return d.toLocaleDateString('pt-PT', {day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' +
            d.toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
   }catch(e){ return iso; }
+}
+
+/* ============================================================
+   2b. MOTIVO — opções fixas do campo "Motivo" (substitui as antigas
+   Observações em texto livre). Ver renderMotivoCell()/motivoParaTexto()
+   para a lógica de apresentação, incluindo compatibilidade com
+   registos antigos que só têm `obs`.
+   ============================================================ */
+const MOTIVO_OPTIONS = [
+  { key:'pressa',   label:'Estava com pressa (confirmar por favor)' },
+  { key:'procurei', label:'Procurei bem em todos os locais e Reservas mas não encontrei' },
+  { key:'outros',   label:'Outros' }
+];
+
+function motivoParaTexto(it){
+  if(!it) return '';
+  if(it.motivo === 'outros') return 'Outros' + (it.motivoOutros ? (': ' + it.motivoOutros) : '');
+  const opt = MOTIVO_OPTIONS.find(o=> o.key === it.motivo);
+  if(opt) return opt.label;
+  if(it.obs) return '(registo antigo) ' + it.obs;   // registo pré-existente sem `motivo`
+  return '';
 }
 
 /* ============================================================
@@ -679,10 +708,11 @@ function renderListsSidebar(){
     const l = LISTS[id];
     const n = (l.items||[]).length;
     const active = id===currentListId ? ' active' : '';
+    const operadorMeta = l.operador ? ` · Operador: ${escapeHtml(l.operador)}` : '';
     return `<div class="list-item${active}" data-id="${id}">
       <div class="li-main">
         <div class="li-name">${escapeHtml(l.nome)}</div>
-        <div class="li-meta">${n} produto${n===1?'':'s'} · ${fmtDate(l.atualizadoEm||l.criadoEm)}</div>
+        <div class="li-meta">${n} produto${n===1?'':'s'} · ${fmtDate(l.atualizadoEm||l.criadoEm)}${operadorMeta}</div>
       </div>
       <button class="btn ghost sm li-del" data-del="${id}" title="Apagar lista">✕</button>
     </div>`;
@@ -706,7 +736,7 @@ function renderCurrentList(){
   empty.style.display='none'; main.style.display='';
   const l = LISTS[currentListId];
   $('#listTitle').textContent = l.nome;
-  $('#listMeta').textContent = `Criada em ${fmtDate(l.criadoEm)} · atualizada em ${fmtDate(l.atualizadoEm||l.criadoEm)}`;
+  $('#listMeta').textContent = `Criada em ${fmtDate(l.criadoEm)} · atualizada em ${fmtDate(l.atualizadoEm||l.criadoEm)}` + (l.operador ? ` · Operador: ${l.operador}` : '');
   $('#statItems').textContent = (l.items||[]).length.toLocaleString('pt-PT');
 
   const tbody = $('#itemsTbody');
@@ -724,10 +754,32 @@ function renderCurrentList(){
       <td><input type="number" class="in-sistema" value="${it.stockSistema ?? ''}" placeholder="0"></td>
       <td><input type="number" class="in-contado" value="${it.stockContado ?? ''}" placeholder="0"></td>
       <td class="diff ${diffClass}">${diffText}</td>
-      <td><input type="text" class="obs in-obs" value="${escapeHtml(it.obs||'')}" placeholder="observação…"></td>
+      <td>${renderMotivoCell(it)}</td>
       <td><button class="btn ghost sm btn-remove" title="Remover">✕</button></td>
     </tr>`;
   }).join('');
+}
+
+/* Célula "Motivo" de um item: select com as 3 opções fixas + campo de
+   texto livre condicional (só quando motivo==='outros'). Para registos
+   antigos sem `motivo` mas com `obs` (texto livre antigo), mostra essa
+   observação antiga por baixo, claramente rotulada, sem a perder nem
+   rebentar com o formulário. */
+function renderMotivoCell(it){
+  const temMotivo = it.motivo != null && it.motivo !== '';
+  const opcoes = MOTIVO_OPTIONS.map(o=>
+    `<option value="${o.key}"${it.motivo===o.key?' selected':''}>${escapeHtml(o.label)}</option>`
+  ).join('');
+  const mostrarOutros = it.motivo === 'outros';
+  const legacyNote = (!temMotivo && it.obs)
+    ? `<div style="margin-top:6px; font-size:11.5px; color:var(--ink-soft); font-style:italic;">Motivo: (registo antigo) ${escapeHtml(it.obs)}</div>`
+    : '';
+  return `<select class="obs in-motivo">
+      <option value=""${!temMotivo?' selected':''}>— selecionar —</option>
+      ${opcoes}
+    </select>
+    <input type="text" class="obs in-motivo-outros" value="${escapeHtml(it.motivoOutros||'')}" placeholder="Especifique…" style="margin-top:6px;${mostrarOutros?'':' display:none;'}">
+    ${legacyNote}`;
 }
 
 /* ============================================================
@@ -741,18 +793,20 @@ function selectList(id){
   renderCurrentList();
 }
 
-async function createList(nome){
+async function createList(nome, operador){
   const id = uid();
   const now = new Date().toISOString();
-  LISTS[id] = { id, nome: nome.trim() || todayLabel(), criadoEm: now, atualizadoEm: now, items: [] };
+  LISTS[id] = { id, nome: nome.trim() || todayLabel(), operador: operador.trim(), criadoEm: now, atualizadoEm: now, items: [] };
   await saveLists();
   selectList(id);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('stocks', 'criar_lista');
   toast('Lista criada.');
 }
 
-async function renameList(id, nome){
+async function renameList(id, nome, operador){
   if(!LISTS[id]) return;
   LISTS[id].nome = nome.trim() || LISTS[id].nome;
+  LISTS[id].operador = operador.trim() || LISTS[id].operador;
   LISTS[id].atualizadoEm = new Date().toISOString();
   await saveLists();
   renderListsSidebar(); renderCurrentList();
@@ -782,9 +836,10 @@ async function addProductToCurrentList(p){
   const l = LISTS[currentListId];
   if(p[1] && (l.items||[]).some(it=>it.codigo===p[1])){ toast('Este produto já está na lista.'); return; }
   l.items = l.items || [];
-  l.items.unshift({ codigo:p[1]||'', designacao:p[0], fam:p[2], stockSistema:'', stockContado:'', obs:'', manual: !!p[3] });
+  l.items.unshift({ codigo:p[1]||'', designacao:p[0], fam:p[2], stockSistema:'', stockContado:'', motivo:'', motivoOutros:'', manual: !!p[3] });
   l.atualizadoEm = new Date().toISOString();
   await saveLists();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('stocks', 'registar_item');
   renderListsSidebar(); renderCurrentList();
 }
 
@@ -912,15 +967,18 @@ async function exportXlsx(){
     { header:'Stock Sistema', width:16 },
     { header:'Stock Contado', width:16 },
     { header:'Diferença', width:14 },
-    { header:'Observações', width:40 },
+    { header:'Motivo', width:40 },
   ];
   ws.columns = COLS.map(c=>({ width:c.width }));
 
-  // --- Logo (linhas 1-4, coluna A) ---
+  // --- Logo (linhas 1-4, coluna A) — 4x maior (pedido do Ivo aplicado a
+  // todos os documentos gerados pela Central, não só ao Gabinete); as
+  // alturas das linhas 1-4 abaixo escalam na mesma proporção para o texto
+  // ao lado ficar bem enquadrado com o logótipo maior. ---
   let logoRowsUsed = 0;
   try{
     const imgId = wb.addImage({ base64: 'data:image/' + LOGO_MIME_EXT + ';base64,' + LOGO_B64, extension: (LOGO_MIME_EXT === 'gif' ? 'gif' : LOGO_MIME_EXT === 'jpeg' ? 'jpeg' : 'png') });
-    ws.addImage(imgId, { tl:{ col:0.15, row:0.15 }, ext:{ width:78, height:78 } });
+    ws.addImage(imgId, { tl:{ col:0.15, row:0.15 }, ext:{ width:312, height:312 } });
     logoRowsUsed = 4;
   }catch(e){ /* sem logo, continua sem falhar */ }
 
@@ -944,10 +1002,10 @@ async function exportXlsx(){
   ws.getCell('B4').font = { name:'Calibri', size:9.5, color:{ argb:'FF'+INK_SOFT } };
   ws.getCell('B4').alignment = { vertical:'middle' };
 
-  ws.getRow(1).height = 22;
-  ws.getRow(2).height = 20;
-  ws.getRow(3).height = 18;
-  ws.getRow(4).height = 16;
+  ws.getRow(1).height = 88;
+  ws.getRow(2).height = 80;
+  ws.getRow(3).height = 72;
+  ws.getRow(4).height = 64;
 
   const HEADER_ROW = 6;
   const headerRow = ws.getRow(HEADER_ROW);
@@ -972,7 +1030,7 @@ async function exportXlsx(){
     row.getCell(3).value = it.stockSistema===''||it.stockSistema==null ? null : Number(it.stockSistema);
     row.getCell(4).value = it.stockContado===''||it.stockContado==null ? null : Number(it.stockContado);
     row.getCell(5).value = diff;
-    row.getCell(6).value = it.obs || '';
+    row.getCell(6).value = motivoParaTexto(it);
 
     row.eachCell({ includeEmpty:true }, (cell, colNum)=>{
       cell.font = { name:'Calibri', size:10, color:{ argb:'FF'+INK } };
@@ -1011,6 +1069,7 @@ async function exportXlsx(){
   a.href = url; a.download = `stocks-errados-${safeName}.xlsx`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('stocks', 'exportar_lista');
   toast('Excel exportado.');
 }
 
@@ -1026,39 +1085,40 @@ function exportPdf(){
   const doc = new jsPDF({ orientation:'landscape', unit:'pt', format:'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // logo no canto superior esquerdo
+  // logo no canto superior esquerdo (4x maior — pedido do Ivo aplicado a
+  // todos os documentos gerados pela Central, não só ao Gabinete)
   try{
-    doc.addImage('data:image/' + LOGO_MIME_EXT + ';base64,' + LOGO_B64, LOGO_MIME_EXT.toUpperCase(), 40, 24, 44, 44);
+    doc.addImage('data:image/' + LOGO_MIME_EXT + ';base64,' + LOGO_B64, LOGO_MIME_EXT.toUpperCase(), 40, 24, 176, 176);
   }catch(e){ /* sem logo, continua */ }
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(14);
   doc.setTextColor(111,34,27);
-  doc.text(nomeFarmaciaAtual().toUpperCase(), 96, 40);
+  doc.text(nomeFarmaciaAtual().toUpperCase(), 228, 88);
 
   doc.setFont('helvetica','bold');
   doc.setFontSize(16);
   doc.setTextColor(28,37,33);
-  doc.text('Lista de Stocks Errados', 96, 58);
+  doc.text('Lista de Stocks Errados', 228, 106);
 
   doc.setFont('helvetica','normal');
   doc.setFontSize(10.5);
   doc.setTextColor(74,86,80);
-  doc.text(l.nome, 96, 74);
-  doc.text(`Exportado em ${fmtDate(new Date().toISOString())} · ${l.items.length} produto(s)`, 96, 88);
+  doc.text(l.nome, 228, 122);
+  doc.text(`Exportado em ${fmtDate(new Date().toISOString())} · ${l.items.length} produto(s)`, 228, 136);
 
   doc.setDrawColor(220,220,210);
   doc.setLineWidth(1);
-  doc.line(40, 100, pageWidth-40, 100);
+  doc.line(40, 216, pageWidth-40, 216);
 
   const rows = l.items.map(it=>{
     const diff = (Number(it.stockContado)||0) - (Number(it.stockSistema)||0);
-    return [it.codigo || '—', it.designacao + (it.manual ? '  (manual)' : ''), String(it.stockSistema||0), String(it.stockContado||0), (diff>0?'+':'')+diff, it.obs||''];
+    return [it.codigo || '—', it.designacao + (it.manual ? '  (manual)' : ''), String(it.stockSistema||0), String(it.stockContado||0), (diff>0?'+':'')+diff, motivoParaTexto(it)];
   });
 
   doc.autoTable({
-    startY: 112,
-    head: [['Código','Designação','Stock Sistema','Stock Contado','Diferença','Observações']],
+    startY: 228,
+    head: [['Código','Designação','Stock Sistema','Stock Contado','Diferença','Motivo']],
     body: rows,
     styles:{ font:'helvetica', fontSize:9, cellPadding:5, textColor:[28,37,33], lineColor:[220,220,210], lineWidth:0.5 },
     headStyles:{ fillColor:[164,52,42], textColor:255, fontStyle:'bold' },
@@ -1090,6 +1150,7 @@ function exportPdf(){
 
   const safeName = (l.nome||'lista').replace(/[^\w\- ]+/g,'').trim().slice(0,60) || 'lista';
   doc.save(`stocks-errados-${safeName}.pdf`);
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('stocks', 'exportar_lista');
   toast('PDF exportado.');
 }
 
@@ -1109,6 +1170,7 @@ function openListModal(mode){
   $('#modalListTitle').textContent = mode==='new' ? 'Nova lista' : 'Renomear lista';
   $('#modalListName').value = mode==='rename' && currentListId ? LISTS[currentListId].nome : '';
   $('#modalListName').placeholder = `Ex.: ${todayLabel()}`;
+  $('#modalListOperador').value = mode==='rename' && currentListId ? (LISTS[currentListId].operador||'') : '';
   $('#modalList').classList.add('show');
   setTimeout(()=> $('#modalListName').focus(), 50);
 }
@@ -1119,12 +1181,17 @@ $('#modalList').addEventListener('click', (e)=>{ if(e.target.id==='modalList') c
 
 $('#modalListSave').addEventListener('click', async ()=>{
   const name = $('#modalListName').value;
+  const operador = $('#modalListOperador').value;
   if(!name.trim()){ toast('Indique um nome.'); return; }
-  if(modalMode==='new') await createList(name);
-  else await renameList(currentListId, name);
+  if(!operador.trim()){ toast('Indique o nome do operador.'); return; }
+  if(modalMode==='new') await createList(name, operador);
+  else await renameList(currentListId, name, operador);
   closeModal();
 });
 $('#modalListName').addEventListener('keydown', (e)=>{
+  if(e.key==='Enter'){ $('#modalListSave').click(); }
+});
+$('#modalListOperador').addEventListener('keydown', (e)=>{
   if(e.key==='Enter'){ $('#modalListSave').click(); }
 });
 
@@ -1150,7 +1217,8 @@ $('#itemsTbody').addEventListener('change', async (e)=>{
   const idx = Number(tr.dataset.idx);
   if(e.target.classList.contains('in-sistema')) await updateItemField(idx, 'stockSistema', e.target.value);
   else if(e.target.classList.contains('in-contado')) await updateItemField(idx, 'stockContado', e.target.value);
-  else if(e.target.classList.contains('in-obs')) await updateItemField(idx, 'obs', e.target.value);
+  else if(e.target.classList.contains('in-motivo')) await updateItemField(idx, 'motivo', e.target.value);
+  else if(e.target.classList.contains('in-motivo-outros')) await updateItemField(idx, 'motivoOutros', e.target.value);
   renderCurrentList();
 });
 $('#itemsTbody').addEventListener('click', async (e)=>{

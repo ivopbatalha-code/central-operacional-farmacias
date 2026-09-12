@@ -17,7 +17,7 @@
  */
 import { bus } from "./events.js";
 import { nowTs, uid } from "./utils.js";
-import { CATEGORIA_INDEFINIDA_ID, CATEGORIAS_PADRAO } from "./domain.js";
+import { CATEGORIA_INDEFINIDA_ID, CATEGORIAS_PADRAO, MODULOS_ATALHOS } from "./domain.js";
 import { getPerfil } from "./authClient.js";
 import { cacheBrandingLocal } from "./db.js";
 
@@ -32,6 +32,41 @@ function stripTransient(s) {
   return rest;
 }
 function chaveConteudoServico(id) { return `servico-conteudo:${id}`; }
+
+/**
+ * Cria um "serviço" de atalho (tipo "modulo") para cada módulo/ferramenta
+ * interno que ainda não tenha um — abre o módulo dentro da própria Central
+ * (ver `abrirEmNovaAba`), tal como um clique na barra lateral. Chamado uma
+ * única vez por farmácia (ver a flag "atalhosModulosCriados" em `iniciar()`);
+ * se o utilizador apagar algum destes atalhos depois, não volta a aparecer
+ * sozinho. Garante também que a categoria "Serviços Clínicos" (cat_clinicos)
+ * existe, recriando-a se tiver sido apagada — devolve `null` se não houver
+ * nada a fazer (todos os atalhos já existem).
+ */
+function criarAtalhosModulos(servicosAtuais, categoriasAtuais) {
+  const jaTem = new Set(servicosAtuais.filter(s => s.tipo === "modulo").map(s => s.modulo));
+  const faltam = MODULOS_ATALHOS.filter(m => !jaTem.has(m.modulo));
+  if (!faltam.length) return null;
+
+  let categoriaClinicos = categoriasAtuais.find(c => c.id === "cat_clinicos");
+  let categoriasFinal = categoriasAtuais;
+  if (!categoriaClinicos) {
+    categoriaClinicos = { id: "cat_clinicos", nome: "Serviços Clínicos", cor: "#2b7a4b", imagem: null, parentId: null, ordem: categoriasAtuais.length };
+    categoriasFinal = [...categoriasAtuais, categoriaClinicos];
+  }
+
+  const maxOrdem = servicosAtuais.reduce((m, s) => Math.max(m, s.ordem || 0), -1);
+  const novosServicos = faltam.map((m, i) => ({
+    id: uid("srv"), nome: m.nome, descricao: "", tipo: "modulo", modulo: m.modulo,
+    url: null, htmlContent: null, arquivoBase64: null, arquivoNome: null,
+    imagemBase64: null, imagemUrl: null,
+    categoriaId: categoriaClinicos.id,
+    tags: ["módulo"], favorito: false, status: "ativo",
+    ordem: maxOrdem + 1 + i, criadoEm: nowTs(), atualizadoEm: nowTs(), ultimoAcesso: null, contadorAcessos: 0
+  }));
+
+  return { servicos: [...servicosAtuais, ...novosServicos], categorias: categoriasFinal };
+}
 
 /** data:mime;base64,XXXX -> Blob binário, para abrir PDFs/imagens/documentos corretamente. */
 function dataUrlParaBlob(dataUrl) {
@@ -71,7 +106,7 @@ export function createActions(store, dataStore) {
 
   const actions = {
     async iniciar() {
-      const [servicos, categorias, logoAsset, logoConfigAntigo, nomeFarmaciaConfig, morada, emailContacto, telefoneContacto] = await Promise.all([
+      const [servicos, categorias, logoAsset, logoConfigAntigo, nomeFarmaciaConfig, morada, emailContacto, telefoneContacto, atalhosCriados] = await Promise.all([
         dataStore.getAll("servicos"),
         dataStore.getAll("categorias"),
         // O logótipo vive no seu próprio blob (getAsset), separado do resto
@@ -83,7 +118,8 @@ export function createActions(store, dataStore) {
         dataStore.getConfig("nomeFarmacia"),
         dataStore.getConfig("morada"),
         dataStore.getConfig("emailContacto"),
-        dataStore.getConfig("telefoneContacto")
+        dataStore.getConfig("telefoneContacto"),
+        dataStore.getConfig("atalhosModulosCriados")
       ]);
       const logoBase64 = logoAsset || logoConfigAntigo || null;
       cacheBrandingLocal(nomeFarmaciaConfig || getPerfil()?.nomeFarmacia, logoBase64);
@@ -100,11 +136,35 @@ export function createActions(store, dataStore) {
       if (!nomeFarmaciaConfig && nomeFarmacia !== "Farmácia") {
         dataStore.setConfig("nomeFarmacia", nomeFarmacia).catch(() => {});
       }
+
+      // Atalhos para os módulos/ferramentas, como serviços na categoria
+      // "Serviços Clínicos" (ver criarAtalhosModulos) — criados uma única
+      // vez por farmácia; a flag "atalhosModulosCriados" evita recriá-los
+      // se o utilizador os apagar depois. Gravação best-effort, em segundo
+      // plano: não atrasa o arranque da Central.
+      const categoriasBase = categorias.length ? categorias : CATEGORIAS_PADRAO.slice();
+      let servicosFinal = servicos;
+      let categoriasFinal = categoriasBase;
+      if (!atalhosCriados) {
+        const resultado = criarAtalhosModulos(servicos, categoriasBase);
+        if (resultado) { servicosFinal = resultado.servicos; categoriasFinal = resultado.categorias; }
+        const categoriasMudaram = categoriasFinal !== categoriasBase;
+        (async () => {
+          try {
+            if (categoriasMudaram) await dataStore.putAll("categorias", categoriasFinal);
+            if (resultado) await dataStore.putAll("servicos", servicosFinal.map(stripTransient));
+            await dataStore.setConfig("atalhosModulosCriados", true);
+          } catch (err) {
+            console.error("Erro ao gravar os atalhos dos módulos:", err);
+          }
+        })();
+      }
+
       store.dispatch({
         type: "INIT_STATE",
         payload: {
-          servicos: servicos.map(s => ({ ...s, blobUrl: null })),
-          categorias: categorias.length ? categorias : CATEGORIAS_PADRAO.slice(),
+          servicos: servicosFinal.map(s => ({ ...s, blobUrl: null })),
+          categorias: categoriasFinal,
           logoBase64: logoBase64 || null,
           nomeFarmacia,
           morada: morada || "",
@@ -172,6 +232,7 @@ export function createActions(store, dataStore) {
         id: uid("srv"),
         nome: dados.nome, descricao: dados.descricao || "",
         tipo: dados.tipo, url: dados.tipo === "url" ? dados.url : null,
+        modulo: dados.tipo === "modulo" ? dados.modulo : null,
         htmlContent: dados.tipo === "html" ? dados.htmlContent : null,
         arquivoBase64: dados.tipo === "arquivo" ? dados.arquivoBase64 : null,
         arquivoNome: dados.tipo === "arquivo" ? (dados.arquivoNome || null) : null,
@@ -244,18 +305,29 @@ export function createActions(store, dataStore) {
     },
 
     /**
-     * Abre o serviço numa nova aba. Para serviços HTML/ficheiro cujo
-     * conteúdo já está em memória (criados/editados nesta mesma sessão),
-     * abre de imediato. Caso contrário (carregado noutra sessão/computador,
-     * onde o estado geral nunca inclui o conteúdo completo), vai buscar o
-     * conteúdo ao seu blob próprio primeiro. Abre a aba em branco de
-     * imediato (dentro do mesmo gesto do utilizador) e só depois navega
-     * para o conteúdo, para não ser bloqueado como pop-up pelo browser.
+     * Abre o serviço. Para os atalhos de módulo (tipo "modulo", criados por
+     * `criarAtalhosModulos`) navega dentro da própria Central — exatamente
+     * como um clique no módulo na barra lateral — em vez de abrir uma nova
+     * aba. Para os restantes tipos (url/html/arquivo) abre numa nova aba:
+     * se o conteúdo HTML/ficheiro já está em memória (criado/editado nesta
+     * mesma sessão), abre de imediato; caso contrário (carregado noutra
+     * sessão/computador, onde o estado geral nunca inclui o conteúdo
+     * completo), vai buscar o conteúdo ao seu blob próprio primeiro. Abre a
+     * aba em branco de imediato (dentro do mesmo gesto do utilizador) e só
+     * depois navega para o conteúdo, para não ser bloqueado como pop-up
+     * pelo browser.
      */
     abrirEmNovaAba(id) {
       const st = store.getState();
       const serv = st.servicos.find(s => s.id === id);
       if (!serv) return;
+
+      if (serv.tipo === "modulo" && serv.modulo) {
+        actions.setScope({ tipo: "modulo", modulo: serv.modulo });
+        actions.setSearch("");
+        actions.registarAcesso(id);
+        return;
+      }
 
       if (serv.tipo === "url" && serv.url) {
         const url = /^https?:\/\//i.test(serv.url) ? serv.url : "https://" + serv.url;

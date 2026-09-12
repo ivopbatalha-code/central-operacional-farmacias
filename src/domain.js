@@ -14,6 +14,30 @@ export const CATEGORIAS_PADRAO = [
   { id: "cat_administrativo", nome: "Administrativo", cor: "#8a6ac2", imagem: null, parentId: null, ordem: 4 }
 ];
 
+/**
+ * Atalhos para os módulos/ferramentas internos, apresentados como serviços
+ * (cartões na grelha da Central) — ver `actions.js` -> `criarAtalhosModulos()`
+ * para a criação automática (uma única vez por farmácia, na categoria
+ * "Serviços Clínicos"; o utilizador pode depois mover cada um para outra
+ * categoria normalmente, editando o serviço). Mantido sincronizado à mão com
+ * as listas MODULOS/FERRAMENTAS de `ui/sidebar.js` (os mesmos 13 ids).
+ */
+export const MODULOS_ATALHOS = [
+  { modulo: "manipulados", nome: "Manipulados" },
+  { modulo: "documentos", nome: "Documentos" },
+  { modulo: "gabinete", nome: "Gestão de Gabinete" },
+  { modulo: "pim", nome: "Gestão de PIM" },
+  { modulo: "aue", nome: "Pedidos AUE" },
+  { modulo: "stocks", nome: "Stocks Errados" },
+  { modulo: "reservas", nome: "Reservas" },
+  { modulo: "medela", nome: "Aluguer Medela" },
+  { modulo: "conversor-pdf", nome: "Conversor de PDF" },
+  { modulo: "devolucao-frio", nome: "Devolução de Frio" },
+  { modulo: "mapa-cardiovascular", nome: "Mapa Cardiovascular" },
+  { modulo: "devolucoes-armazenistas", nome: "Devoluções a Armazenistas" },
+  { modulo: "catalogo-produtos", nome: "Catálogo de Produtos" }
+];
+
 export function categoriaIndefinida() {
   return { id: CATEGORIA_INDEFINIDA_ID, nome: "Categoria Indefinida", cor: "#8a9a90", imagem: null, parentId: null, ordem: 9999, sistema: true };
 }

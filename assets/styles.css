@@ -338,6 +338,28 @@ footer{text-align:center;margin-top:36px;font-size:.7rem;color:var(--text-faint)
 .usage-bar-fill{height:100%;background:var(--primary);border-radius:6px;transition:width .3s var(--ease);}
 .usage-bar-row .ubr-count{width:26px;text-align:right;color:var(--text-soft);font-weight:700;flex-shrink:0;}
 
+/* ---------------- Poupança & ROI ---------------- */
+.poup-resumo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;}
+.poup-resumo-card{background:var(--surface-alt);border:1px solid var(--border);border-radius:20px;padding:16px 18px;}
+.poup-resumo-card .prc-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:8px;}
+.poup-resumo-card .prc-tempo{font-size:1.28rem;font-weight:800;color:var(--primary-dark);line-height:1.15;}
+.poup-resumo-card .prc-euros{font-size:.86rem;font-weight:700;color:var(--primary);margin-top:2px;}
+.poup-resumo-card .prc-sub{font-size:.68rem;color:var(--text-soft);margin-top:6px;}
+.poup-custom-card{background:var(--surface-alt);border:1px dashed var(--primary);border-radius:20px;padding:16px 18px;display:flex;flex-wrap:wrap;gap:22px;align-items:center;}
+.poup-custom-card .pcc-item .prc-label{font-size:.68rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;}
+.poup-custom-card .pcc-item .prc-tempo{font-size:1.1rem;font-weight:800;color:var(--primary-dark);}
+.poup-custom-card .pcc-item .prc-euros{font-size:.9rem;font-weight:700;color:var(--primary);}
+.poup-chart-box{background:var(--surface-alt);border:1px solid var(--border);border-radius:20px;padding:14px 16px;position:relative;}
+.poup-chart-box-sm{height:220px;}
+.poup-cols-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;}
+.poup-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:16px;}
+.poup-table{width:100%;border-collapse:collapse;font-size:.78rem;min-width:640px;}
+.poup-table th{text-align:left;background:var(--surface-soft);padding:9px 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);white-space:nowrap;}
+.poup-table td{padding:8px 12px;border-top:1px solid var(--border);vertical-align:middle;}
+.poup-table td.pt-num{text-align:right;color:var(--text-soft);}
+.poup-table input.pt-est{width:72px;padding:5px 8px;border-radius:10px;border:1px solid var(--border-strong);font-size:.76rem;text-align:right;background:var(--surface);}
+.poup-table td.pt-poupado{font-weight:700;color:var(--primary-dark);}
+
 /* --- Paleta de comandos --- */
 .palette-overlay{position:fixed;inset:0;background:rgba(20,40,32,.45);backdrop-filter:blur(2px);z-index:1200;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;visibility:hidden;opacity:0;transition:.15s var(--ease);}
 .palette-overlay.active{visibility:visible;opacity:1;}

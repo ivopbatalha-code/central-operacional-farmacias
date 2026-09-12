@@ -143,7 +143,7 @@
   .sheet-head .sh-title{ font-family:var(--serif); font-weight:700; font-size:21px; letter-spacing:-.01em; }
   .sheet-head .sh-title small{ display:block; font-family:var(--sans); font-weight:600; font-size:10.5px;
     color:var(--tbl-header-bg, var(--brand-deep)); text-transform:uppercase; letter-spacing:.09em; margin-bottom:5px; }
-  .sheet-head img{ height:38px; width:auto; }
+  .sheet-head img{ height:152px; width:auto; object-fit:contain; }
   .sheet-page-no{ font-family:var(--mono); font-size:9.5px; color:var(--ink-soft); text-align:right; margin-top:10px; letter-spacing:.02em; }
 
   table.res-table{ width:100%; border-collapse:collapse; font-family:var(--sans); }
@@ -588,8 +588,12 @@ carregarLogoAsset();
     els.statRows.textContent = '—'; els.statProducts.textContent = '—'; els.statPages.textContent = '—';
   }
   els.btnReset.addEventListener('click', resetAll);
-  els.btnPrint.addEventListener('click', function(){ window.print(); });
-  els.btnPrintTop.addEventListener('click', function(){ window.print(); });
+  function gerarFolhaImpressao(){
+    window.print();
+    if(window.ModuleChrome) window.ModuleChrome.registarUso('reservas', 'gerar_folha');
+  }
+  els.btnPrint.addEventListener('click', gerarFolhaImpressao);
+  els.btnPrintTop.addEventListener('click', gerarFolhaImpressao);
 
   // ---------- sorting / filtering ----------
   function getFilteredSorted(){

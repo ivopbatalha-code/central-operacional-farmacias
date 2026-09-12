@@ -95,6 +95,7 @@
         <button class="modal-tab" data-tab="servicos">Serviços</button>
         <button class="modal-tab" data-tab="categorias">Categorias</button>
         <button class="modal-tab" data-tab="dados">Dados &amp; Estatísticas</button>
+        <button class="modal-tab" data-tab="poupanca">Poupança &amp; ROI</button>
       </div>
     </div>
     <div class="modal-body">
@@ -242,6 +243,84 @@
               <p>Remove todos os serviços, categorias e o logótipo desta central. Ação irreversível.</p>
               <button id="btnResetTudo" class="btn-danger-outline"><span class="icon" id="trashIcon2"></span> Repor</button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: POUPANÇA & ROI -->
+      <div class="tab-panel" id="tab-poupanca">
+        <div class="config-section">
+          <h3><span class="icon" id="poupancaIcon1"></span> Poupança & Retorno do Investimento</h3>
+          <p style="font-size:.78rem;color:var(--text-soft);margin:-4px 0 16px;max-width:640px;">
+            Estimativa do tempo e do dinheiro que esta farmácia já poupou ao usar a Central, com base no
+            número de vezes que cada tarefa foi feita em cada módulo, comparado com o tempo estimado de a
+            fazer à mão. As estimativas de tempo por tarefa podem ser ajustadas mais abaixo.
+          </p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div class="form-group" style="max-width:220px;">
+              <label>Valor pago por hora (€)</label>
+              <input type="number" id="poupValorHoraInput" min="0" step="0.01" placeholder="Ex: 8.50">
+            </div>
+            <div class="form-group" style="max-width:220px;">
+              <label>Período personalizado — início</label>
+              <input type="date" id="poupPeriodoInicio">
+            </div>
+            <div class="form-group" style="max-width:220px;">
+              <label>Período personalizado — fim</label>
+              <input type="date" id="poupPeriodoFim">
+            </div>
+            <div class="form-group" style="flex:0;">
+              <button id="btnPoupAtualizar" class="btn-secondary" style="white-space:nowrap;"><span class="icon" id="poupancaRefreshIcon"></span> Atualizar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div id="poupResumoGrid" class="poup-resumo-grid"></div>
+        </div>
+
+        <div class="config-section">
+          <div id="poupCustomResumo" class="poup-custom-card" style="display:none;"></div>
+        </div>
+
+        <div class="config-section">
+          <h3><span class="icon" id="chartIcon2"></span> Tempo poupado ao longo do tempo</h3>
+          <div class="poup-chart-box"><canvas id="poupChartTendencia" height="90"></canvas></div>
+        </div>
+
+        <div class="config-section">
+          <div class="poup-cols-2">
+            <div>
+              <h3 style="font-size:.92rem;">Poupança por módulo</h3>
+              <div class="poup-chart-box poup-chart-box-sm"><canvas id="poupChartModulos"></canvas></div>
+            </div>
+            <div>
+              <h3 style="font-size:.92rem;">Tarefas mais realizadas</h3>
+              <div class="poup-chart-box poup-chart-box-sm"><canvas id="poupChartTarefas"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <div class="toolbar-row">
+            <h3 style="margin:0;"><span class="icon" id="boxesIcon2"></span> Tarefas rastreadas e estimativas de tempo</h3>
+            <button id="btnPoupExportarPdf" class="btn-primary"><span class="icon" id="poupancaPdfIcon"></span> Exportar relatório em PDF</button>
+          </div>
+          <p style="font-size:.72rem;color:var(--text-soft);margin:6px 0 12px;">
+            Pode ajustar aqui as estimativas de tempo manual/Central de cada tarefa (em segundos) — os
+            valores por omissão são conservadores. As alterações aplicam-se a partir de agora, ao
+            período que escolher acima.
+          </p>
+          <div class="poup-table-wrap">
+            <table class="poup-table" id="poupTabelaTarefas">
+              <thead>
+                <tr>
+                  <th>Módulo</th><th>Tarefa</th><th>Nº vezes (período)</th>
+                  <th>Tempo manual (s)</th><th>Tempo Central (s)</th><th>Tempo poupado</th>
+                </tr>
+              </thead>
+              <tbody id="poupTabelaTarefasBody"></tbody>
+            </table>
           </div>
         </div>
       </div>

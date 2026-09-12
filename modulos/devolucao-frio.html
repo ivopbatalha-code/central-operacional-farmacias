@@ -267,7 +267,7 @@ body { font-family: Arial, sans-serif; font-size: var(--fs); background: #b8b8b8
   <div class="tsep"></div>
   <button class="tbtn green" onclick="openUpload()">📎 Carregar ficheiro (auto-preencher)</button>
   <div class="tsep"></div>
-  <button class="tbtn" onclick="window.print()">🖨 Imprimir</button>
+  <button class="tbtn" onclick="gerarDeclaracao()">🖨 Imprimir</button>
 </div>
 
 <!-- UPLOAD MODAL -->
@@ -391,6 +391,12 @@ function voltarACentral(){
   window.top.location.href = "/";
 }
 window.voltarACentral = voltarACentral;
+
+function gerarDeclaracao(){
+  window.print();
+  if(window.ModuleChrome) window.ModuleChrome.registarUso('devolucao-frio', 'gerar_declaracao');
+}
+window.gerarDeclaracao = gerarDeclaracao;
 
 aoExpirarSessao(() => {
   limparSessao();

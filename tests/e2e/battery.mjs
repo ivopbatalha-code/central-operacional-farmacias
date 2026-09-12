@@ -193,6 +193,120 @@ async function main() {
   const dataAntigoDepois = JSON.parse((await apiFetch('/api/data', { headers: { Authorization: `Bearer ${tokenAntigo}` } })).body);
   ok('farmácia antiga: após 1ª gravação real de qualquer módulo, config.logo converge e desaparece', !dataAntigoDepois.config || !dataAntigoDepois.config.logo);
 
+  // ---------- 7. módulo Poupança & ROI: tracking de uso (registarUso) + dashboard ----------
+  {
+    const emailUso = `qa-uso-${Date.now()}@x.pt`;
+    const signupUso = JSON.parse((await apiFetch('/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomeFarmacia: 'Farmácia QA Uso', email: emailUso, password: 'password123' })
+    })).body);
+    const tokenUso = signupUso.token;
+    const perfilUso = { tenantId: signupUso.tenantId, email: emailUso, nomeFarmacia: 'Farmácia QA Uso' };
+    const hoje = new Date();
+    const mesChave = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+    const diaChave = mesChave + '-' + String(hoje.getDate()).padStart(2, '0');
+
+    // 7a. window.ModuleChrome.registarUso(), chamado a partir de uma página de
+    // módulo real, deve persistir no blob mensal via o debounce (2s) do flush.
+    {
+      const { ctx, page } = await novaPaginaComSessao(tokenUso, perfilUso, viewports.desktop);
+      await page.goto(`${BASE}/modulos/pim.html`, { waitUntil: 'load', timeout: 15000 });
+      await page.waitForTimeout(500);
+      const temApi = await page.evaluate(() => typeof window.ModuleChrome?.registarUso === 'function');
+      ok('window.ModuleChrome.registarUso está disponível nos módulos', temApi);
+      await page.evaluate(() => {
+        window.ModuleChrome.registarUso('pim', 'criar_utente');
+        window.ModuleChrome.registarUso('pim', 'criar_utente');
+        window.ModuleChrome.registarUso('pim', 'registar_receita');
+      });
+      await page.waitForTimeout(3000); // debounce (2s) + margem
+      await ctx.close();
+    }
+    const assetUsoRes = await apiFetch(`/api/asset/${encodeURIComponent('uso-' + mesChave)}`, { headers: { Authorization: `Bearer ${tokenUso}` } });
+    const contagensUso = (JSON.parse(assetUsoRes.body).content ? JSON.parse(JSON.parse(assetUsoRes.body).content) : { dias: {} }).dias?.[diaChave] || {};
+    ok('registarUso(): flush automático (debounce) persistiu "pim.criar_utente"=2', contagensUso['pim.criar_utente'] === 2);
+    ok('registarUso(): flush automático (debounce) persistiu "pim.registar_receita"=1', contagensUso['pim.registar_receita'] === 1);
+
+    // 7b. um flush que falha (ex.: GET abortado por navegação a meio, caso
+    // conhecido do Chromium mesmo com keepalive:true) nunca pode apagar ou
+    // corromper dados de uso já persistidos por um flush anterior bem-sucedido.
+    {
+      const { ctx, page } = await novaPaginaComSessao(tokenUso, perfilUso, viewports.desktop);
+      await page.goto(`${BASE}/modulos/pim.html`, { waitUntil: 'load', timeout: 15000 });
+      await page.waitForTimeout(300);
+      await page.evaluate(() => { window.ModuleChrome.registarUso('pim', 'criar_evento'); });
+      await page.goto(`${BASE}/modulos/gabinete.html`, { waitUntil: 'load', timeout: 15000 }); // dispara 'pagehide' quase de imediato
+      await page.waitForTimeout(2500);
+      await ctx.close();
+    }
+    const assetUsoRes2 = await apiFetch(`/api/asset/${encodeURIComponent('uso-' + mesChave)}`, { headers: { Authorization: `Bearer ${tokenUso}` } });
+    const contagensUso2 = (JSON.parse(assetUsoRes2.body).content ? JSON.parse(JSON.parse(assetUsoRes2.body).content) : { dias: {} }).dias?.[diaChave] || {};
+    ok('registarUso(): um flush falhado (navegação) nunca apaga uso já gravado ("pim.criar_utente" continua=2)', contagensUso2['pim.criar_utente'] === 2);
+    ok('registarUso(): um flush falhado (navegação) nunca apaga uso já gravado ("pim.registar_receita" continua=1)', contagensUso2['pim.registar_receita'] === 1);
+
+    // 7c. dashboard "Poupança & ROI" (Configurações): renderiza resumos e a
+    // tabela completa do catálogo de tarefas mesmo que o Chart.js (cdnjs) não
+    // carregue — regressão do bug encontrado durante o desenvolvimento, em
+    // que uma falha do CDN de gráficos bloqueava silenciosamente todo o painel.
+    {
+      const { ctx, page } = await novaPaginaComSessao(tokenUso, perfilUso, viewports.desktop);
+      await page.goto(`${BASE}/index.html`, { waitUntil: 'load', timeout: 15000 });
+      await page.waitForTimeout(1000);
+      await page.click('#btnAbrirConfig');
+      await page.waitForTimeout(200);
+      await page.click('#modalConfig .modal-tab[data-tab="poupanca"]');
+      await page.waitForTimeout(1500);
+      const linhasTabela = await page.evaluate(() => document.querySelectorAll('#poupTabelaTarefasBody tr').length);
+      ok('Poupança & ROI: tabela de tarefas renderiza as ~34 linhas do catálogo (mesmo sem Chart.js/cdnjs)', linhasTabela >= 30, `linhas=${linhasTabela}`);
+      const resumoHtml = await page.evaluate(() => document.getElementById('poupResumoGrid')?.innerHTML || '');
+      ok('Poupança & ROI: resumo mostra os 5 cartões (hoje/semana/mês/ano/sempre)', (resumoHtml.match(/poup-resumo-card/g) || []).length === 5);
+      await ctx.close();
+    }
+  }
+
+  // ---------- 8. leitura de DataMatrix (zxing-wasm/BarcodeDetector) + parseGS1 ----------
+  // Não simula a câmara em si (isso exigiria um dispositivo de vídeo falso e
+  // mockar o CDN do zxing-wasm) — cobre o que É determinístico e testável sem
+  // hardware: a API partilhada existe nos 2 módulos que abrem câmara, e
+  // parseGS1() continua a decompor corretamente tanto o formato novo (HRI,
+  // "(01)...(17)...", o que o zxing-wasm devolve por omissão para GS1) como o
+  // formato antigo (dígitos concatenados, sem parênteses — heurística por
+  // posição/comprimento, para texto colado à mão ou QR sem essa formatação).
+  {
+    const emailScan = `qa-scan-${Date.now()}@x.pt`;
+    const signupScan = JSON.parse((await apiFetch('/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomeFarmacia: 'Farmácia QA Scan', email: emailScan, password: 'password123' })
+    })).body);
+    const tokenScan = signupScan.token;
+    const perfilScan = { tenantId: signupScan.tenantId, email: emailScan, nomeFarmacia: 'Farmácia QA Scan' };
+
+    for (const modulo of ['gabinete', 'pim']) {
+      const { ctx, page } = await novaPaginaComSessao(tokenScan, perfilScan, viewports.desktop);
+      await page.goto(`${BASE}/modulos/${modulo}.html`, { waitUntil: 'load', timeout: 15000 });
+      await page.waitForTimeout(400);
+      const temApi = await page.evaluate(() => !!(window.ModuleChrome && typeof window.ModuleChrome.ensureBarcodeLib === 'function' && typeof window.ModuleChrome.decodeBarcodeFrame === 'function'));
+      ok(`${modulo}.html: window.ModuleChrome expõe ensureBarcodeLib/decodeBarcodeFrame (leitura de DataMatrix)`, temApi);
+
+      const codigoHRI = '(01)07612345678903(17)251231(10)LOTE9XZ(21)SN00456(714)1234567';
+      const viaHRI = await page.evaluate((c) => window.parseGS1(c), codigoHRI);
+      ok(`${modulo}.html: parseGS1() decompõe corretamente um código GS1 em formato HRI (com parênteses)`, !!viaHRI &&
+        viaHRI.pc === '07612345678903' && viaHRI.validadeRaw === '251231' && viaHRI.lote === 'LOTE9XZ' && viaHRI.sn === 'SN00456' && viaHRI.cnp === '1234567',
+        JSON.stringify(viaHRI));
+
+      // mesmo conteúdo, sem parênteses (estilo antigo/colado à mão) — cai
+      // para a heurística por posição, que tem de continuar a funcionar tal
+      // e qual antes desta sessão (nenhuma regressão).
+      const codigoAntigo = '010761234567890317251231714123456710LOTE9XZ21SN00456';
+      const viaHeuristica = await page.evaluate((c) => window.parseGS1(c), codigoAntigo);
+      ok(`${modulo}.html: parseGS1() continua a decompor o formato antigo sem parênteses (heurística, sem regressão)`, !!viaHeuristica &&
+        viaHeuristica.pc === '07612345678903' && viaHeuristica.cnp === '1234567' && viaHeuristica.validadeRaw === '251231',
+        JSON.stringify(viaHeuristica));
+
+      await ctx.close();
+    }
+  }
+
   await browser.close();
 
   console.log(`\n===== RESUMO: ${results.pass.length} passaram, ${results.fail.length} falharam =====`);
